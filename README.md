@@ -96,7 +96,7 @@ This project is licensed under the [GPLv3 License](LICENSE).
 
 ## ⭐ **Support Us**  
 
-If you find this project helpful, please consider giving us a ⭐ on [GitHub](https://kenzap.slack.com/channels/community).  
+If you find this project helpful, please consider giving us a ⭐ on [GitHub](https://github.com/kenzap/kenzap).  
 
 <!--
 **kenzap/kenzap** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
