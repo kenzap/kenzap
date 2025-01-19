@@ -1,0 +1,217 @@
+body{
+  /* background-color: red;; */
+  /* font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; */
+  /* color: #212529; */
+  background-color: #f8f9fa !important;
+}
+
+.po {
+  cursor: pointer;
+  transition: 0.24s;
+}
+
+.p-edit{
+  margin-top: 80px;
+}
+
+.loader {
+  z-index: 10000;
+}
+
+div.toast{
+  z-index: 1000!important;
+}
+
+@media (max-width: 500px) {
+  .toast {
+    width: auto;
+  }
+}
+
+.console-output{
+  max-height: 100px;
+}
+
+.console-output:empty{
+  display: none;
+}
+
+.alert-msg{
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.ace_editor {
+  margin: auto;
+  height: 300px;
+  width: 100%;
+}
+
+.console-output,
+.ace_editor, .ace_editor *{
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", "Droid Sans Mono", "Consolas", monospace !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+
+/* product list */
+.table-p-list thead tr th:nth-child(1) {
+  width: 44px;
+}
+
+.table-p-list .search-cont {
+  display: none;
+}
+
+.table-p-list .bi-search {
+  cursor: pointer;
+}
+
+.table-p-list .badge .spinner-border-sm{
+  width: 0.5rem;
+  height: 0.5rem
+}
+
+.timgc {
+  overflow: hidden;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 46px;
+  min-height: 46px;
+}
+
+.bi-terminal:hover{
+  color: #111111;
+}
+
+.timgc img {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  max-width: 100%;
+}
+
+.table-responsive .dropdown,
+.table-responsive .btn-group,
+.table-responsive .btn-group-vertical {
+  position: static;
+}
+
+.blocked::after {
+  content: "";
+  position: absolute;
+  /* top: 0; */
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: linear-gradient(120deg, #ffffff, #ffffff);
+  opacity: .7;
+}
+
+.project-select:focus{
+  outline: none!important;
+  box-shadow: none;
+}
+
+/* settings page */
+.app-settings .image-cont {
+  cursor: pointer;
+  max-width: 600px;
+}
+
+.app-settings .image-cont img {
+  object-fit: cover;
+  max-width: 600px;
+  width: 100%;
+}
+
+.app-settings .image-upload {
+  display: none;
+}
+
+.map-regions{
+  height: 300px;
+  width: 100%;
+}
+
+.endpoint-status,
+.edge-status{
+  position: absolute;
+  border: 2px solid #ffffff;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: -4px;
+  margin-left: -4px;
+  z-index: 2;
+}
+
+.endpoint-status{
+  margin: 0;
+  position: relative;
+}
+
+h2, h3, h4, h5,
+.text-accent{
+  color: #000E35;
+}
+
+.active,
+.online{
+  background: #20c997;
+}
+
+.ready,
+.creating,
+.pending{
+  background: #f7db5f;
+}
+
+.error,
+.offline{
+  background: #f75fb4;
+}
+
+.color-danger{
+  color: #f75fb4;
+}
+
+.not-active{
+  background: #E6E6E6;
+}
+
+/* .nost{
+  display: none;
+} */
+
+.bi-play-circle:hover{
+  color: #20c997;
+}
+
+.bi-cloud-arrow-up:hover,
+.bi-stop-circle{
+  color: #f75fb4!important;
+}
+
+.bg-danger{
+  background-color:#f75fb4!important;
+}
+
+.alert-msg pre{
+  white-space: normal;
+}
+
+.elipsized{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-create .form-control,
+.app-create .form-select,
+.app-settings .form-select,
+.app-settings .form-control{
+    border-width: 0!important;
+}

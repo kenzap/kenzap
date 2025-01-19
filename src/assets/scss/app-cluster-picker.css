@@ -1,0 +1,87 @@
+
+.cluster-picker.selected {
+  background: #f5f9ff;
+  border-color: #1941df;
+}
+
+.cluster-picker {
+  border-radius: 4px;
+  background: #fff;
+  color: #dfdfdf;
+  cursor: pointer;
+  letter-spacing: 0;
+  border: 1px solid #dfdfdf;
+  position: relative;
+}
+
+.cluster-picker.selected .name {
+  color: #1941df;
+}
+
+.cluster-picker .name {
+  color: #676767;
+  display: block;
+  /* height: 50px; */
+  line-height: 1.2;
+  padding-left: 60px;
+}
+
+.cluster-picker {
+  border-radius: 3px;
+  background: #fff;
+  color: #dfdfdf;
+  cursor: pointer;
+  letter-spacing: 0;
+  border: 1px solid #dfdfdf;
+  position: relative;
+}
+
+.cluster-picker:after{
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-ubuntu" viewBox="0 0 16 16"><path d="M2.273 9.53a2.273 2.273 0 1 0 0-4.546 2.273 2.273 0 0 0 0 4.547Zm9.467-4.984a2.273 2.273 0 1 0 0-4.546 2.273 2.273 0 0 0 0 4.546M7.4 13.108a5.54 5.54 0 0 1-3.775-2.88 3.27 3.27 0 0 1-1.944.24 7.4 7.4 0 0 0 5.328 4.465c.53.113 1.072.169 1.614.166a3.25 3.25 0 0 1-.666-1.9 6 6 0 0 1-.557-.091m3.828 2.285a2.273 2.273 0 1 0 0-4.546 2.273 2.273 0 0 0 0 4.546m3.163-3.108a7.44 7.44 0 0 0 .373-8.726 3.3 3.3 0 0 1-1.278 1.498 5.57 5.57 0 0 1-.183 5.535 3.26 3.26 0 0 1 1.088 1.693M2.098 3.998a3.3 3.3 0 0 1 1.897.486 5.54 5.54 0 0 1 4.464-2.388c.037-.67.277-1.313.69-1.843a7.47 7.47 0 0 0-7.051 3.745"/></svg>')!important;
+}
+
+.cluster-picker.nyc::after,
+.cluster-picker.saf::after{
+  background-image: url(https://cdn.kenzap.com/flag/us.svg);
+}
+
+.cluster-picker.nur::after{
+  background-image: url(https://cdn.kenzap.com/flag/de.svg);
+}
+
+.cluster-picker.sg::after,
+.cluster-picker.sin::after{
+  background-image: url(https://cdn.kenzap.com/flag/sg.svg);
+}
+
+.cluster-picker.lon::after{
+  background-image: url(https://cdn.kenzap.com/flag/gb.svg);
+}
+
+.cluster-picker.bgl::after{
+  background-image: url(https://cdn.kenzap.com/flag/in.svg);
+}
+
+.cluster-picker::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  pointer-events: none;
+  width: 50px;
+  height: 50px;
+  background: transparent;
+  transform: scale(.5);
+}
+
+.cluster-picker::after {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  width: 50px;
+  height: 50px;
+}
+
+.cluster-picker .grayed{
+  opacity: 0.4;
+}

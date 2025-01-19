@@ -1,0 +1,23 @@
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: xxxaaa-network-policy
+  namespace: xxxaaa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # only allow same namespace inbound pod communications, DNS queries, and ingress Internet traffic
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            app.kubernetes.io/name: ingress-nginx
+      - podSelector:
+          matchLabels:
+            app: xxxaaa
+  # only allow same namespace outbound pod communications, DNS queries, and outbound Internet traffic
+  egress:
+    # all traffic
+    - {}

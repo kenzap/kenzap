@@ -7,6 +7,9 @@ yarn-error.log*
 
 # Dependency directories
 node_modules/
+dashboard/node_modules/
+html/node_modules/
+api/node_modules/
 
 # readme txt
 readme.txt
@@ -23,7 +26,9 @@ readme.txt
 # dotenv environment variables file
 .env
 
+# visual studio config file may contain api keys
+.vscode
+src/.vscode
+
 # mac os stuff
 .DS_Store
-
-dist/

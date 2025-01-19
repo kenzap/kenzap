@@ -1,0 +1,30 @@
+[class*=block-grid-] {
+  display: block;
+  padding: 0;
+  margin: 0 -0.5rem;
+}
+
+.small-block-grid-3>li:nth-of-type(3n+1) {
+  clear: both;
+}
+
+.small-block-grid-3>li:nth-of-type(1n) {
+  clear: none;
+}
+
+.small-block-grid-3>li {
+  width: 33.33333%;
+  list-style: none;
+}
+
+[class*=block-grid-]>li {
+  display: block;
+  height: auto;
+  float: left;
+  padding: 0 0.5rem 1rem;
+}
+
+.badge .spinner-border-sm{
+  width: 0.5rem;
+  height: 0.5rem
+}

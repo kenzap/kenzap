@@ -1,0 +1,82 @@
+// @import "~bootstrap/scss/bootstrap";
+// @import "style";
+
+body{
+    background-color: red;;
+}
+
+.po {
+    cursor: pointer;
+}
+  
+.loader {
+  z-index: 10000;
+}
+
+@media (max-width: 500px) {
+  .toast {
+    width: auto;
+  }
+}
+/* product list */
+.table-p-list thead tr th:nth-child(1) {
+  width: 44px;
+}
+
+.table-p-list .search-cont {
+  display: none;
+}
+
+.table-p-list .bi-search {
+  cursor: pointer;
+}
+
+.timgc {
+  overflow: hidden;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 42px;
+}
+
+.timgc img {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: none;
+}
+
+.table-responsive .dropdown,
+.table-responsive .btn-group,
+.table-responsive .btn-group-vertical {
+  position: static;
+}
+
+.ace_editor {
+  margin: auto;
+  height: 300px;
+  width: 100%;
+}
+
+.ace_editor, .ace_editor * {
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", "Droid Sans Mono", "Consolas", monospace !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-settings .image-cont {
+  cursor: pointer;
+  max-width: 600px;
+}
+
+.app-settings .image-cont img {
+  object-fit: cover;
+  max-width: 600px;
+  width: 100%;
+}
+
+.app-settings .image-upload {
+  display: none;
+}
+  

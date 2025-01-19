@@ -23,7 +23,9 @@ readme.txt
 # dotenv environment variables file
 .env
 
+# visual studio config file may contain api keys
+.vscode
+src/.vscode
+
 # mac os stuff
 .DS_Store
-
-dist/

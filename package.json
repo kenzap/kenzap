@@ -1,0 +1,44 @@
+{
+  "name": "kenzap",
+  "version": "1.0.2",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-webpack dev",
+    "compile": "electron-webpack",
+    "dist": "yarn compile && electron-builder",
+    "distx": "yarn compile && electron-builder -m --x64",
+    "dist:dir": "yarn dist --dir -c.compression=store -c.mac.identity=null"
+  },
+  "dependencies": {
+    "@kenzap/k-cloud": "latest",
+    "@popperjs/core": "latest",
+    "@tusharghoshbd/ngx-charts": "^2.0.1",
+    "ace-builds": "latest",
+    "ace-code-editor": "latest",
+    "ansi-to-html": "latest",
+    "bootstrap": "latest",
+    "child_process": "latest",
+    "decompress-zip": "latest",
+    "js-yaml": "latest",
+    "slugify": "latest",
+    "source-map-support": "latest",
+    "ssh2": "^1.16.0",
+    "terminate": "latest"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "latest",
+    "@electron-forge/maker-deb": "latest",
+    "@electron-forge/maker-rpm": "latest",
+    "@electron-forge/maker-squirrel": "latest",
+    "@electron-forge/maker-zip": "latest",
+    "@electron-forge/plugin-auto-unpack-natives": "latest",
+    "@eslint/js": "^9.18.0",
+    "@types/ace": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "electron-webpack": "latest",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "webpack": "latest"
+  }
+}

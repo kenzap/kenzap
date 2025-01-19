@@ -1,0 +1,131 @@
+[class*=block-grid-] {
+  display: block;
+  padding: 0;
+  margin: 0 -0.5rem;
+}
+
+.small-block-grid-2>li:nth-of-type(2n+1) {
+  clear: both;
+}
+
+.small-block-grid-2>li:nth-of-type(1n) {
+  clear: none;
+}
+
+.small-block-grid-2>li {
+  width: 50%;
+  list-style: none;
+}
+
+.small-block-grid-1>li {
+  width: 100%;
+  list-style: none;
+}
+
+[class*=block-grid-]>li {
+  display: block;
+  height: auto;
+  float: left;
+  padding: 0 0.5rem 1rem;
+}
+
+.image-picker.selected {
+  background: #f5f9ff;
+  border-color: #1941df;
+}
+
+.image-picker {
+  border-radius: 4px;
+  /* background: #fff; */
+  /* color: #dfdfdf; */
+  cursor: pointer;
+  letter-spacing: 0;
+  /* border: 1px solid #dfdfdf; */
+  position: relative;
+}
+
+.image-picker.selected .name {
+  color: #1941df;
+}
+
+.image-picker .name {
+  /* color: #676767; */
+  display: block;
+  /* height: 50px; */
+  line-height: 1;
+  /* padding-left: 60px; */
+}
+
+/* .image-picker {
+  border-radius: 3px;
+  background: #fff;
+  color: #dfdfdf;
+  cursor: pointer;
+  letter-spacing: 0;
+border: 1px solid #dfdfdf;
+  position: relative;
+} */
+
+.image-picker:hover{
+
+}
+
+/* .region-picker.nyc::after,
+.region-picker.saf::after{
+  background-image: url(https://cdn.kenzap.com/flag/us.svg);
+}
+
+.region-picker.nur::after{
+  background-image: url(https://cdn.kenzap.com/flag/de.svg);
+}
+
+.region-picker.sg::after,
+.region-picker.sin::after{
+  background-image: url(https://cdn.kenzap.com/flag/sg.svg);
+}
+
+.region-picker.lon::after{
+  background-image: url(https://cdn.kenzap.com/flag/gb.svg);
+}
+
+.region-picker.bgl::after{
+  background-image: url(https://cdn.kenzap.com/flag/in.svg);
+} */
+
+/* .image-picker::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  pointer-events: none;
+  width: 50px;
+  height: 28px;
+  background: #cbcbcb;
+  transform: scale(.5);
+} */
+
+.image-picker::after {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  width: 50px;
+  height: 30px;
+}
+
+.image-picker img{
+  width: 48px;
+  height: 48px;
+  margin-right: 0px;
+}
+
+.grayed{
+  opacity: 0.4;
+}
+
+.monospace{
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", "Droid Sans Mono", "Consolas", monospace !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  font-size: 0.8rem;
+}
