@@ -11,7 +11,7 @@ A user-friendly **desktop application** built with **Electron.js** to simplify K
 ## 🌟 **Product Overview**  
 
 ### 🎥 **Preview**  
-![Kubernetes Simplified App in Action](path-to-your-gif.gif)  
+![Kubernetes Simplified App in Action](https://github.com/kenzap/kenzap/blob/main/preview.gif)  
 *(Above: The app streamlining cluster creation and deployment automation.)*  
 
 ---
