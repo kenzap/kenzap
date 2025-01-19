@@ -43,7 +43,8 @@ A user-friendly **desktop application** built with **Electron.js** to simplify K
 ### **From Source**  
 ```bash
 git clone https://github.com/kenzap/kenzap.git  
-cd kenzap 
+cd kenzap
+nvm use 16
 npm i  
 npm run dev  
 ```  
