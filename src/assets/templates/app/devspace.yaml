@@ -12,7 +12,7 @@ deployments:
       - app.yaml
 pullSecrets:
   pullsecret:
-    registry: template_registry
+    registry: template_url_registry
     username: template_username
     password: template_password
 localRegistry:
