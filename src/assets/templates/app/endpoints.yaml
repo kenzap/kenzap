@@ -2,8 +2,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: xxxnamespace-ingress
-  namespace: xxxnamespace
+  name: template_slug-ingress
+  namespace: template_slug
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
     ingress.kubernetes.io/force-ssl-redirect: "false"
@@ -17,10 +17,10 @@ spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - xxxnamespace.app.kenzap.cloud
+    - template_slug.app.kenzap.cloud
     secretName: letsencrypt-prod
   rules:
-  - host: xxxnamespace.app.kenzap.cloud
+  - host: template_slug.app.kenzap.cloud
     http:
       paths:
       - path: /
@@ -36,11 +36,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: app
-  namespace: xxxnamespace
+  namespace: template_slug
 spec:
   type: ClusterIP
   selector:
-    app: xxxnamespace
+    app: template_slug
   ports:
     - port: 80
       name: http
