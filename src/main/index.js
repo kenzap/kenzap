@@ -25,8 +25,6 @@ function createMainWindow() {
     e.preventDefault()
   });
 
-
-
   // if (isDevelopment) {
   window.webContents.openDevTools()
   // }

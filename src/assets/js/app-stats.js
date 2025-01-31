@@ -1,4 +1,4 @@
-import { __html, getSetting, loadDependencies, parseError } from './helpers.js'
+import { __html, getSetting, loadDependencies, parseError, log } from './helpers.js'
 import fs from "fs"
 import yaml from 'js-yaml';
 import * as path from 'path';
@@ -95,9 +95,8 @@ export class AppStats {
                 this.range.cpu = self.normalizeCPU(appYaml[0].spec.template.spec.containers[0].resources.requests.cpu);
                 this.range.memory = self.normalizeRAM(appYaml[0].spec.template.spec.containers[0].resources.requests.memory);
 
-                console.log("CPU", this.range.cpu);
-                console.log("RAM", this.range.memory);
-
+                // console.log("CPU", this.range.cpu);
+                // console.log("RAM", this.range.memory);
 
                 read = true;
 
@@ -327,5 +326,10 @@ export class AppStats {
         loadDependencies("https://www.gstatic.com/charts/loader.js", () => self.drawCharts(self));
 
         this.refreshCharts();
+    }
+
+    destroy() {
+
+        if (this.statsInterval) { log("destroying app stats"); clearInterval(this.statsInterval); }
     }
 }

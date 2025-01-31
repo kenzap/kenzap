@@ -7,6 +7,7 @@ import 'ace-builds/webpack-resolver'
 import 'ace-builds/src-noconflict/theme-monokai'
 import 'ace-builds/src-noconflict/mode-javascript'
 import fs from "fs"
+import { log } from "console";
 
 export class DockerFile {
 
@@ -37,7 +38,7 @@ export class DockerFile {
 
         let path = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep + 'Dockerfile';
 
-        console.log("render Dockerfile path" + path);
+        // console.log("render Dockerfile path" + path);
 
         global.state.editor = ace.edit("appDocker", {
             maxLines: 20,
@@ -70,6 +71,7 @@ export class DockerFile {
             }
         }
 
+        this.dockerFileOriginal = global.state.editor.getValue();
     }
 
     listeners() {
@@ -77,6 +79,10 @@ export class DockerFile {
     }
 
     save() {
+
+        if (this.dockerFileOriginal == global.state.editor.getValue()) { log("Docker file not changed"); return; }
+
+        log("Saving docker file")
 
         let path = getDefaultAppPath() + require('path').sep + this.app.slug;
 
@@ -95,5 +101,40 @@ export class DockerFile {
         this.render();
 
         this.listeners();
+
+        // check docker file for changes
+        this.interval = setInterval(() => {
+
+            let path = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep + 'Dockerfile';
+
+            // console.log("render Dockerfile path" + path);
+
+            // read docker file
+            if (fs.existsSync(path)) {
+
+                try {
+
+                    let dockerFile = fs.readFileSync(path, 'utf8');
+
+                    if (this.dockerFileOriginal == dockerFile) return;
+
+                    log("Updating docker file from file");
+
+                    global.state.editor.setValue(fs.readFileSync(path, 'utf8'));
+                    global.state.editor.clearSelection();
+
+                } catch (e) {
+
+                }
+            }
+
+            this.dockerFileOriginal = global.state.editor.getValue();
+
+        }, 5000);
+    }
+
+    destroy() {
+
+        if (this.interval) clearInterval(this.interval);
     }
 }

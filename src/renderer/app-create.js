@@ -325,16 +325,19 @@ export class AppCreate {
 
         let kubeconfig = getClusterKubeconfig(id);
 
+        log("kubeconfig file: ", kubeconfig);
+
         let step1 = () => {
 
             // cleanup
-            run_script(`cd ${data.path}; rm -Rf ${data.slug}.crt; rm -Rf ${data.slug}.key; rm -Rf ${data.slug}.csr; rm -Rf ${data.slug}-user-role-binding.yaml; rm -Rf ${data.slug}-user-role-binding.yaml; rm -Rf ${data.slug}-csr.yaml; rm -Rf ${data.slug}-network-policy.yaml;`, [], () => { this.console('Removing old certificate'); step2() });
+            run_script(`cd ${data.path}; rm -Rf ${data.slug}.crt; rm -Rf ${data.slug}.key; rm -Rf ${data.slug}.csr; rm -Rf ${data.slug}-user-role-binding.yaml; rm -Rf ${data.slug}-user-roles.yaml; rm -Rf ${data.slug}-csr.yaml; rm -Rf ${data.slug}-network-policy.yaml;`, [], () => { this.console('Removing old certificate'); step2() });
         }
 
         let step2 = () => {
 
             // create new certificates
-            run_script(`cd ${data.path}; openssl genrsa -out ${data.slug}.key 2048; openssl req -new -key ${data.slug}.key -out ${data.slug}.csr -subj "/CN=${data.slug}"; cat ${data.slug}.csr | base64 | tr -d "\n" `, [], () => { this.console('Creting new certificate'); }, 0, (error) => { log('User 2 E: ', error.toString()) }, (response) => { log('User 2 R: ' + response.toString()); step3(response.toString()) });
+            log(`openssl genrsa -out ${data.slug}.key 2048; openssl req -new -key ${data.slug}.key -out ${data.slug}.csr -subj "/CN=${data.slug}"; cat ${data.slug}.csr | base64 | tr -d "\n" `);
+            run_script(`cd ${data.path}; openssl genrsa -out ${data.slug}.key 2048; openssl req -new -key ${data.slug}.key -out ${data.slug}.csr -subj "/CN=${data.slug}"; cat ${data.slug}.csr | base64 | tr -d "\n" `, [], () => { this.console('Creting new certificate'); }, 0, (error) => { log('User 2 E: ', error.toString()) }, (response) => { log('User 2 R: ' + response.toString()); setTimeout(() => { step3(response.toString()) }, 1500); });
         }
 
         let step3 = (response) => {
@@ -342,29 +345,35 @@ export class AppCreate {
             // create user role binding
             let certRequest = fs.readFileSync(path.join(__dirname, "../assets/templates/sh/cert_request.yaml")).toString();
 
-            //this.console(certRequest);
+            // this.console(certRequest);
 
             certRequest = certRequest.replace(/kenzap-app-slug-request/g, response);
             certRequest = certRequest.replace(/kenzap-app-slug/g, data.slug);
             fs.writeFileSync(path.join(data.path, `${data.slug}-csr.yaml`), certRequest);
 
+            // kubectl create -f php-test-csr.yaml --kubeconfig=../.kenzap/kubeconfig-GJDmHH.yaml
+            log(`kubectl create -f ${data.slug}-csr.yaml --kubeconfig=${kubeconfig}`);
             run_script(`cd ${data.path}; kubectl create -f ${data.slug}-csr.yaml --kubeconfig=${kubeconfig}`, [], () => { this.console('Creating certificate signing request'); step4() });
         }
 
         let step4 = () => {
 
-            // certificate auto approve 
+            // certificate auto approve | kubectl certificate approve php-test --kubeconfig=../.kenzap/kubeconfig-GJDmHH.yaml
+            log(`cd ${data.path}; kubectl certificate approve ${data.slug} --kubeconfig=${kubeconfig}`);
             run_script(`cd ${data.path}; kubectl certificate approve ${data.slug} --kubeconfig=${kubeconfig}`, [], () => { this.console('Approving certificate'); setTimeout(() => { step5(); }, 100); });
         }
 
         let step5 = () => {
 
-            // certificate export
+            // certificate export | kubectl get csr php-test --kubeconfig=../.kenzap/kubeconfig-GJDmHH.yaml -o jsonpath='{.status.certificate}' | base64 -d > php-test.crt
+            log(`kubectl get csr ${data.slug} --kubeconfig=${kubeconfig} -o jsonpath='{.status.certificate}' | base64 -d > ${data.slug}.crt`);
             run_script(`cd ${data.path}; kubectl get csr ${data.slug} --kubeconfig=${kubeconfig} -o jsonpath='{.status.certificate}' | base64 -d > ${data.slug}.crt`, [], () => { this.console('User 5: certificate exported'); step6(); });
         }
 
         let step6 = () => {
 
+            // kubectl get csr --kubeconfig=../.kenzap/kubeconfig-GJDmHH.yaml
+            log(`kubectl get csr --kubeconfig=${kubeconfig}`);
             run_script(`cd ${data.path}; kubectl get csr --kubeconfig=${kubeconfig}`, [], () => { this.console('Retrieving certificate signing request'); step8(); });
         }
 
@@ -446,7 +455,8 @@ export class AppCreate {
 
         // endpoints.yaml
         let endpoints = fs.readFileSync(path.join(__dirname, "../assets/templates/app/endpoints.yaml"), 'utf8');
-        endpoints = endpoints.replace(/xxxnamespace/g, data.slug);
+        endpoints = endpoints.replace(/template_namespace/g, data.slug);
+        endpoints = endpoints.replace(/template_endpoint/g, data.slug + ".endpoint-" + settings.id + ".kenzap.cloud");
         fs.writeFileSync(path.join(data.path, 'endpoints.yaml'), endpoints);
 
         // .gitignore
@@ -489,6 +499,13 @@ export class AppCreate {
 
         this.console(`App created in ${data.path}`);
 
+        // apply endpoints
+        setTimeout(() => { run_script('cd ' + data.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster.id + '.yaml', [], () => { }); }, 2000);
+
+        // clean up
+        setTimeout(() => { run_script(`cd ${data.path}; rm -Rf ${data.slug}.crt; rm -Rf ${data.slug}.key; rm -Rf ${data.slug}.csr; rm -Rf ${data.slug}-user-roles.yaml; rm -Rf ${data.slug}-user-role-binding.yaml; rm -Rf ${data.slug}-csr.yaml; rm -Rf ${data.slug}-network-policy.yaml;`, [], () => { this.console('Cleaning up'); }); }, 20000);
+
+        // load app settings page
         setTimeout(() => { new Settings(data.slug); }, 2000);
     }
 

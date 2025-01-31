@@ -1,0 +1,97 @@
+# create new VPS instance
+go to hetzner or DO portal
+
+# gen ssh key
+ssh-keygen
+
+# wasabi drive mount (Optional, useful for large registries)
+sudo apt-get update && sudo apt-get install s3fs
+sudo nano /etc/.passwd_wasabi in the following format: accessKeyId:secretAccessKey
+sudo chmod 600 /etc/.passwd_wasabi
+mkdir /data
+s3fs instance-eu-registry-1 /data -o passwd_file=/etc/.passwd_wasabi -o url=https://s3.eu-central-2.wasabisys.com
+
+# setup docker, ssh to node https://www.digitalocean.com/community/tutorials/how-to-set-up-a-private-docker-registry-on-ubuntu-22-04
+apt-get update -y
+sudo apt install apt-transport-https ca-certificates curl software-properties-common -y
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update -y
+apt-cache policy docker-ce
+sudo apt install docker-ce
+sudo systemctl status docker
+
+# setup registry
+mkdir /data/docker-registry
+cd /data/docker-registry
+nano docker-compose.yml
+cd /data/docker-registry; sudo docker compose up -d --remove-orphans;
+sudo apt-get install apache2-utils
+
+# point dns record
+eu.registry.kenzap.com -> 49.13.167.153
+eu-registry-1.kenzap.cloud -> 188.245.241.203
+
+# setup nginx
+sudo apt install nginx -y
+sudo ufw allow 'Nginx HTTP'
+systemctl status nginx
+
+# setup certbot
+sudo apt install certbot python3-certbot-nginx
+cp /etc/nginx/sites-available/default /etc/nginx/sites-available/eu.registry.kenzap.com
+sudo nano /etc/nginx/sites-available/eu.registry.kenzap.com
+sudo nano /etc/nginx/sites-available/default
+# change server_name _ to server_name eu.registry.kenzap.com
+sudo systemctl reload nginx
+sudo certbot --nginx -d eu.registry.kenzap.com
+apt install python3-pip
+pip install certbot-dns-bunny
+
+# setup nginx proxy
+copy /data/proxy.conf
+
+# create docker-compose.yml
+services:                                                                                                                                                                                                                                                                                                                                                                         
+  kubernetes:
+    image: registry:latest
+    container_name: kubernetes
+    ports:
+    - "8317:8317"
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/registry.password
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
+      REGISTRY_HTTP_ADDR: 0.0.0.0:8317
+      REGISTRY_STORAGE_DELETE_ENABLED: 1
+    volumes:
+    - ./kubernetes-auth:/auth
+    - ./kubernetes-data:/data
+
+# create nginx block
+
+# create registry user
+sudo mkdir -p /data/docker-registry/kubernetes-auth; cd /data/docker-registry/kubernetes-auth; sudo htpasswd -Bbc registry.password kubernetes WqwEqxFhbdQrYewcivucUewwjkhsdac0bSdsdf345dfax
+
+# install node
+cd /data
+sudo apt install nodejs -y
+sudo apt install npm -y
+sudo npm install forever -g
+npm i shelljs
+
+# run
+cd /data/docker-registry; sudo docker compose up -d --remove-orphans; sudo systemctl reload nginx; 
+cd /data/; sudo forever start API.js;
+s3fs instance-eu-registry-1 /data -o passwd_file=/etc/.passwd_wasabi -o url=https://s3.eu-central-2.wasabisys.com
+
+# listing resources
+https://stackoverflow.com/questions/31251356/how-to-get-a-list-of-images-on-docker-registry-v2
+
+# clean up
+https://gist.github.com/DavidPesticcio/314e3e88c9bf71a0729d63119f5ae527
+
+# alternative registry services
+https://github.com/goharbor/harbor
+https://github.com/Trow-Registry/trow https://computingforgeeks.com/trow-container-image-registry-with-kubernetes/

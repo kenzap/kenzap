@@ -191,7 +191,7 @@ export class ClusterStats {
 
             this.server = this.cluster.servers[this.dashboardServer];
 
-            const conn = run_ssh_script(sh, "launch-kubernetes-dashboard.sh", this.server, cb, 0, (error) => { this.dashboardRequested = false; console.log(error); }, () => { }, 60 * 60 * 1000);
+            const conn = run_ssh_script(sh, "launch-kubernetes-dashboard.sh", this.server, cb, 0, (tag, error) => { this.dashboardRequested = false; console.log(error); }, () => { }, 60 * 60 * 1000);
 
             // setTimeout(() => { console.log("SSH Force close."); conn.end(); }, 20000);
         });

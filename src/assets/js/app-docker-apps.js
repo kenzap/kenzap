@@ -50,7 +50,7 @@ export class DockerApps {
             <tr>
                 <td>
                     <div id="im${i}" data-id="${im.id}" class="image-picker d-flex ember-view px-1 py-1 ${this.app.clusters.includes('nyc') ? 'selected' : ''}" > 
-                        <img src="${html(im.logo_url.small ? im.logo_url.small : im.logo_url.large ? im.logo_url.large : "https://cdn.kenzap.com/loading.png")}" > 
+                        <img src="${html(im.logo_url.small ? im.logo_url.small : im.logo_url.large ? im.logo_url.large : "https://cdn.kenzap.com/loading.png")}" class="img-fluid rounded" onerror="this.onerror=null;this.src='https://cdn.kenzap.com/loading.png';">
                         <div class="ms-3 mt-1">
                             <span role="button" class="name" >
                                 ${html(im.name)}

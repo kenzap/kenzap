@@ -9,8 +9,7 @@ import yaml from 'js-yaml';
 import { appList } from "../../renderer/app-list.js"
 import { getAppKubeconfig } from './app-status-helpers.js'
 import * as path from 'path';
-// import { log } from "console"
-// const ssh = require('ssh2').Client;
+import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
 import { Client as ssh } from 'ssh2';
 
 export class DevTools {
@@ -352,6 +351,10 @@ export function deleteApp(id, cb) {
 
     let data = global.state.apps.filter(app => app.id == id)[0];
 
+    let kubeconfigCluster = getClusterKubeconfig(data.clusters[0]);
+
+    log("kubeconfigCluster", kubeconfigCluster);
+
     let kubeconfig = getAppKubeconfig(id);
 
     if (!kubeconfig) return;
@@ -363,8 +366,8 @@ export function deleteApp(id, cb) {
     let step1 = () => {
 
         // clear namespace
-        log(`cd ${data.path}; kubectl delete all --all -n ${data.slug} --kubeconfig=${kubeconfig}`);
-        run_script(`cd ${data.path}; kubectl delete all --all -n ${data.slug} --kubeconfig=${kubeconfig}`, [], () => { log(`Removing previous resources in ${data.slug} namespace`); step2(); }, 0, (error) => { log('Cluster 1 E: ', error.toString()); });
+        log(`cd ${data.path}; kubectl delete all --all -n ${data.slug} --kubeconfig=${kubeconfigCluster}`);
+        run_script(`cd ${data.path}; kubectl delete all --all -n ${data.slug} --kubeconfig=${kubeconfigCluster}`, [], () => { log(`Removing previous resources in ${data.slug} namespace`); step2(); }, 0, (error) => { log('Cluster 1 E: ', error.toString()); });
     }
 
     let step2 = () => {
@@ -372,14 +375,16 @@ export function deleteApp(id, cb) {
         hideLoader();
 
         // clear namespace
-        run_script(`cd ${data.path}; kubectl delete namespace ${data.slug} --kubeconfig=${kubeconfig}`, [], () => { log(`Removing ${data.slug} namespace`); step3(); }, 0, (error) => { log('Cluster 2 E: ', error.toString()); step3(); });
+        run_script(`cd ${data.path}; kubectl delete namespace ${data.slug} --kubeconfig=${kubeconfigCluster}`, [], () => { log(`Removing ${data.slug} namespace`); step3(); }, 0, (error) => { log('Cluster 2 E: ', error.toString()); step3(); });
     }
 
     let step3 = () => {
 
+        log('step3');
+
         // force delete namespace and all resources
-        log(`kubectl get namespace "${data.slug}" --kubeconfig=${kubeconfig} -o json | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" | kubectl replace --kubeconfig=${kubeconfig} --raw /api/v1/namespaces/${data.slug}/finalize -f -`);
-        run_script(`cd ${data.path}; kubectl get namespace "${data.slug}" --kubeconfig=${kubeconfig} -o json | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" | kubectl replace --kubeconfig=${kubeconfig} --raw /api/v1/namespaces/${data.slug}/finalize -f -`, [], () => { step4(); log('Namespace force removed'); }, 0, (error) => { step4(); log('Cluster 3 E: ', error.toString()); });
+        log(`kubectl get namespace "${data.slug}" --kubeconfig=${kubeconfigCluster} -o json | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" | kubectl replace --kubeconfig=${kubeconfigCluster} --raw /api/v1/namespaces/${data.slug}/finalize -f -`);
+        run_script(`cd ${data.path}; kubectl get namespace "${data.slug}" --kubeconfig=${kubeconfigCluster} -o json | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" | kubectl replace --kubeconfig=${kubeconfigCluster} --raw /api/v1/namespaces/${data.slug}/finalize -f -`, [], () => { step4(); log('Namespace force removed'); }, 0, (error) => { step4(); log('Cluster 3 E: ', error.toString()); });
     }
 
     let step4 = () => {
@@ -389,8 +394,8 @@ export function deleteApp(id, cb) {
         step5();
 
         // CertificateSigningRequest
-        log(`kubectl delete CertificateSigningRequest ${data.slug} --kubeconfig=${kubeconfig}`);
-        run_script(`kubectl delete CertificateSigningRequest ${data.slug} --kubeconfig=${kubeconfig}`, [], () => { log('Clearing previous certificate signing requests'); step5(); }, 1, (error) => { step5(); });
+        log(`kubectl delete CertificateSigningRequest ${data.slug} --kubeconfig=${kubeconfigCluster}`);
+        run_script(`kubectl delete CertificateSigningRequest ${data.slug} --kubeconfig=${kubeconfigCluster}`, [], () => { log('Clearing previous certificate signing requests'); step5(); }, 1, (error) => { step5(); });
     }
 
     let step5 = () => {
@@ -1292,6 +1297,14 @@ export function run_ssh_script(command, script, server, callback, verbose = 1, c
 
     let response = "";
 
+    if (!fs.existsSync(server.key)) {
+        const error = new Error(`SSH Key file not found: ${server.key}`);
+        if (typeof callback_error === 'function') {
+            callback_error("ssh_key", error);
+        }
+        return;
+    }
+
     const conn = new ssh();
     conn.on('ready', () => {
 
@@ -1299,15 +1312,15 @@ export function run_ssh_script(command, script, server, callback, verbose = 1, c
 
         conn.sftp((error, sftp) => {
 
-            if (typeof callback_error === 'function' && error) { callback_error(error); return; }
+            if (typeof callback_error === 'function' && error) { callback_error("ssh_sftp", error); return; }
 
             sftp.writeFile('/tmp/' + script, command, (error) => {
 
-                if (typeof callback_error === 'function' && error) { callback_error(error); return; }
+                if (typeof callback_error === 'function' && error) { callback_error("ssh_write_file", error); return; }
 
                 conn.exec('bash /tmp/' + script, (error, stream) => {
 
-                    if (typeof callback_error === 'function' && error) { callback_error(error); return; }
+                    if (typeof callback_error === 'function' && error) { callback_error("ssh_exec", error); return; }
 
                     stream.on('close', (code, signal) => {
 
@@ -1329,9 +1342,9 @@ export function run_ssh_script(command, script, server, callback, verbose = 1, c
 
                     }).stderr.on('data', (data) => {
 
-                        console.log('SSH ERR: ' + data);
+                        console.log('SSH STDERR: ' + data);
 
-                        if (typeof callback_error === 'function' && data) { callback_error(data); return; }
+                        if (typeof callback_error === 'function' && data) { callback_error("stderr", data); return; }
                     });
                 });
             });
@@ -1341,10 +1354,10 @@ export function run_ssh_script(command, script, server, callback, verbose = 1, c
 
         console.error('SSH Connection Error:', error);
 
-        if (typeof callback_error === 'function' && error) { callback_error(error + '. Server: ' + server.server); return; }
+        if (typeof callback_error === 'function' && error) { callback_error("shh_connection", error + '. Server: ' + server.server); return; }
 
     }).connect({
-        readyTimeout: timeout || 20000,
+        readyTimeout: timeout || 30000,
         host: server.server,
         port: server.port,
         username: server.username,

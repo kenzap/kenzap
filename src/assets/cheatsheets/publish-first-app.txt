@@ -1,0 +1,37 @@
+# ssh to node-1 
+ssh root@your_server_ip_address -i ~/Desktop/node-1
+
+# get kubeconfig file
+microk8s config
+
+# on your laptop Desktop create folder my-app
+# copy config to my-app/kubeconfig.yaml
+# install Kubectl https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/
+# install DevSpace https://www.devspace.sh/docs/getting-started/introduction
+# install Docker Desktop https://www.docker.com/products/docker-desktop/
+
+cd ~/Desktop/my-app/
+kubectl cluster-info --kubeconfig=kubeconfig.yaml
+
+# in case of https warning add insecure-skip-tls-verify: true; comment out certificate-authority-data
+
+# go to https://github.com/kenzap/kenzap/tree/main/src/assets/templates/app
+# copy app.yaml
+# copy devspace.yaml
+# copy endpoints.yaml
+# copy Dockerfile
+
+# after configuring the endpoints.yaml
+kubectl apply -f endpoints.yaml  --kubeconfig=kubeconfig.yaml
+
+# replace template_slug with your app name
+# publish app
+devspace deploy -n my-app --config=devspace.yaml --kubeconfig=kubeconfig.yaml
+
+# enter container as if ssh
+devspace enter -n my-app --config=devspace.yaml --kubeconfig=kubeconfig.yaml
+
+# sync and debug app
+# create project files in _ folder
+# add .ignore folder
+devspace sync -n my-app --config=devspace.yaml --kubeconfig=kubeconfig.yaml

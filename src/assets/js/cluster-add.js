@@ -248,6 +248,14 @@ export class ClusterAdd {
                 usernameInput.classList.remove('is-invalid');
             }
 
+            // Validate key (non-empty)
+            if (key.length === 0) {
+                keyInput.classList.add('is-invalid');
+                return;
+            } else {
+                keyInput.classList.remove('is-invalid');
+            }
+
             this.servers.push(
                 { "id": getToken(6), "status": "not-active", "server": server, "port": port, "username": username, "key": key }
             );
@@ -332,9 +340,15 @@ export class ClusterAdd {
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         `;
 
+        // Prevent custom HTML code from being entered in the contenteditable element
+        document.querySelector(".cluster-name").addEventListener("paste", (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData("text");
+            document.execCommand("insertText", false, text);
+        });
+
         // buttons
-        document.querySelector(".modal-footer").innerHTML =
-            `
+        document.querySelector(".modal-footer").innerHTML = `
         <div class="btn-group" role="group" aria-label="Basic example">
             <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Cancel")}</button>
             <button id="btn-primary" type="button" class="btn btn-outline-primary create-cluster-btn" data-i=${0} data-action="${action}">${this.clusterEditId ? __html("Update cluster") : __html("Create cluster")}</button>
@@ -350,10 +364,10 @@ export class ClusterAdd {
 
             // validate
             let name = this.modal.querySelector(".cluster-name").innerHTML.trim();
-            if (name.length < 2) { alert("Cluster name is too short") }
+            if (name.length < 2) { alert("Cluster name is too short"); return; }
 
             let regex = /[^a-z_]/g;
-            if (!regex.test(name)) { alert("Please provide valid cluster name"); }
+            if (!regex.test(name)) { alert("Please provide valid cluster name"); return; }
 
             if (!this.settings.clusters) this.settings.clusters = [];
 
@@ -373,6 +387,8 @@ export class ClusterAdd {
             if (!this.clusterEditId) {
 
                 cluster_id = getToken(6);
+
+                if (!this.servers.length) { toast(__html("Click on plus sign to add server to the list")); return; }
 
                 this.settings.clusters.push({ "id": cluster_id, "name": name, "slug": slugify(name.toLowerCase()), "status": "creating", "servers": this.servers, "created": new Date().getTime(), "updated": new Date().getTime() });
 

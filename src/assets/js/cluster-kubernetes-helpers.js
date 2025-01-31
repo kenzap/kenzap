@@ -1,5 +1,6 @@
 'use strict';
 
+import global from './global.js'
 import { __html, toast, getDefaultAppPath, saveKenzapSettings, getKenzapSettings, getToken, log } from './helpers.js'
 import { run_ssh_script, run_script } from './dev-tools.js'
 import fs from 'fs';
@@ -20,12 +21,18 @@ import { connected } from 'process';
  */
 export function installKubernetes(cluster, server) {
 
+    global.state.installKubernetesErrors = [];
+
     let settings = getKenzapSettings();
 
     // install microk8s
     let step1 = () => {
 
         let cb = (data) => {
+
+            log("install step1");
+
+            log(data.toString());
 
             let result = parseInstallResult(data);
 
@@ -36,8 +43,13 @@ export function installKubernetes(cluster, server) {
                 server.status = "ready";
                 server.type = "microk8s";
                 server.version = result.version;
+                server.linux_version = result.linux_version;
+                server.linux_architecture = result.linux_architecture;
                 cluster.servers = cluster.servers.map(s => s.id === server.id ? server : s);
+                cluster.status = "active";
                 settings.clusters = settings.clusters.map(c => c.id === cluster.id ? cluster : c);
+
+                saveKenzapSettings(settings);
 
                 // continue only if kluester is newly installed
                 if (result.installed) {
@@ -52,8 +64,15 @@ export function installKubernetes(cluster, server) {
 
                     joinKubernetes(cluster, server);
 
-                    downloadKubeconfig(cluster.id, server); toast(__html('Kubernetes already installed'));
+                    downloadKubeconfig(cluster.id, server);
+
+                    // toast(__html('Kubernetes installed successfully'));
                 }
+            }
+
+            if (!result.success) {
+
+                parseErrorResult("exec", "Error installing Kubernetes " + result.message, cluster, server);
             }
         }
 
@@ -61,7 +80,7 @@ export function installKubernetes(cluster, server) {
 
         let sh = fs.readFileSync(path.join(__dirname, "../templates/sh/install-kubernetes.sh")).toString();
 
-        let conn = run_ssh_script(sh, "install-kubernetes.sh", server, cb, 0, (error) => { parseErrorResult(error, cluster, server); }, (data) => { });
+        let conn = run_ssh_script(sh, "install-kubernetes.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); global.state.installKubernetesErrors.push(error); console.log("install-kubernetes error", error); }, (data) => { });
     }
 
     // install kubernetes addons
@@ -81,9 +100,9 @@ export function installKubernetes(cluster, server) {
 
         let sh = fs.readFileSync(path.join(__dirname, "../templates/sh/install-kubernetes-addons.sh")).toString();
 
-        run_ssh_script(sh, "install-kubernetes-addons.sh", server, cb, 0, (error) => { parseErrorResult(error, cluster, server); }, (data) => { });
+        run_ssh_script(sh, "install-kubernetes-addons.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); global.state.installKubernetesErrors.push(error); console.log("install-kubernetes-addons error", error); }, (data) => { }); // parseErrorResult(error, cluster, server);
 
-        this.global.state.refreshClusters();
+        global.state.refreshClusters();
     }
 
     step1();
@@ -122,7 +141,8 @@ export function retrieveAllClusterNodes(cluster, cb) {
     proc.on('close', (code) => {
 
         log(`kubectl get nodes exited with code ${code}`);
-        // log(data);
+
+        log(data);
 
         data = JSON.parse(data);
 
@@ -185,6 +205,10 @@ export function joinKubernetes(cluster, server) {
 
         let cb = (data) => {
 
+            log("join step1");
+
+            log(data);
+
             let result = parseInstallResult(data);
 
             if (result.success) {
@@ -194,7 +218,7 @@ export function joinKubernetes(cluster, server) {
                     cluster.servers[0].urls = JSON.parse(result.data.urls);
                 } catch (error) {
 
-                    return parseErrorResult("Error creating join urls " + result.error, cluster, server);
+                    return parseErrorResult("exec", "Error creating join urls " + result.error, cluster, server);
                 }
 
                 settings.clusters = settings.clusters.map(c => c.id === cluster.id ? cluster : c);
@@ -207,7 +231,7 @@ export function joinKubernetes(cluster, server) {
 
         let sh = fs.readFileSync(path.join(__dirname, "../templates/sh/get-kubernetes-token.sh")).toString();
 
-        run_ssh_script(sh, "get-kubernetes-token.sh", cluster.servers[0], cb, 0, (error) => { parseErrorResult(error, cluster, server); }, (data) => { });
+        run_ssh_script(sh, "get-kubernetes-token.sh", cluster.servers[0], cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); }, (data) => { });
     }
 
     let step2 = (urls) => {
@@ -223,7 +247,7 @@ export function joinKubernetes(cluster, server) {
                     settings.nodes = result.data.nodes
                 } catch (error) {
 
-                    return parseErrorResult("Error parsing nodes response " + result.error, cluster, server);
+                    return parseErrorResult("parse", "Error parsing nodes response " + result.error, cluster, server);
                 }
 
                 server.status = "active";
@@ -234,7 +258,7 @@ export function joinKubernetes(cluster, server) {
                 saveKenzapSettings(settings);
             } else {
 
-                return parseErrorResult("Error joining kubernetes " + result.error, cluster, server);
+                return parseErrorResult("exec", "Error joining kubernetes " + result.error, cluster, server);
             }
         }
 
@@ -243,7 +267,7 @@ export function joinKubernetes(cluster, server) {
         // add connction token created by the first cluster node
         sh = sh.replace("{{url}}", urls.urls[0]);
 
-        run_ssh_script(sh, "join-kubernetes-node.sh", server, cb, 0, (error) => { parseErrorResult(error, cluster, server); }, (data) => { });
+        run_ssh_script(sh, "join-kubernetes-node.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); }, (data) => { });
     }
 
     step1();
@@ -263,10 +287,16 @@ export function downloadKubeconfig(id, server, download = false) {
     let cluster = settings.clusters.filter(cluster => cluster.id == id)
     server = server ? server : cluster[0].servers[0];
 
+    if (cluster[0].status == 'creating') { console.log("Cluster is still creating. Skip downloadKubeconfig"); return; }
+
     // get kubeconfig
     let step1 = () => {
 
         let cb = (data) => {
+
+            log("kube step1");
+
+            log(data.toString());
 
             let result = parseInstallResult(data);
 
@@ -296,7 +326,7 @@ export function downloadKubeconfig(id, server, download = false) {
 
         let sh = fs.readFileSync(path.join(__dirname, "../templates/sh/get-kubernetes-kubeconfig.sh")).toString();
 
-        run_ssh_script(sh, "get-kubernetes-kubeconfig.sh", server, cb, 0, (error) => { parseErrorResult(error, cluster, server); }, (data) => { });
+        run_ssh_script(sh, "get-kubernetes-kubeconfig.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); }, (data) => { });
     }
 
     step1();
@@ -364,6 +394,7 @@ export function parseInstallResult(data) {
         result = JSON.parse(data);
     } catch (error) {
 
+        console.log("Error parsing JSON", error);
         return;
     }
 
@@ -404,7 +435,24 @@ export function parseWarningResult(data) {
  * @param {number} [cluster.attempts] - The number of attempts made to connect to the cluster.
  * @param {Object} server - The server object associated with the error.
  */
-export function parseErrorResult(error, cluster, server) {
+export function parseErrorResult(tag, error, cluster, server) {
+
+    // preprocess error based on tag
+    switch (tag) {
+
+        case "exec":
+            error = "Error executing command: " + error;
+            break;
+        case "shh_exec":
+        case "shh_sftp":
+        case "shh_connection":
+            error = "SSH: " + error;
+            break;
+        case "parse":
+            return;
+        default:
+            return;
+    }
 
     if (cluster) {
 

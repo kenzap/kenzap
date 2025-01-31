@@ -280,11 +280,17 @@ export class Settings {
                 users: [],
             };
 
+            this.endpoints.save();
+
+            this.dockerFile.save();
+
             cacheSettings(data);
 
             global.state.msg = "Application updated";
 
-            Settings.prototype.init(data.id);
+            this.destroy();
+
+            this.init(data.id);
         });
 
         // path picker
@@ -303,5 +309,12 @@ export class Settings {
                 document.querySelector("#appPath").value = path;
             });
         });
+    }
+
+    destroy() {
+
+        this.appStats.destroy();
+
+        this.dockerFile.destroy();
     }
 }

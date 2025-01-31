@@ -1,7 +1,7 @@
 
 import global from "./global.js"
 import { clipboard } from 'electron'
-import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp } from './helpers.js'
+import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, API, log } from './helpers.js'
 import yaml from 'js-yaml';
 import fs from "fs"
 import { run_script } from './dev-tools.js'
@@ -19,6 +19,8 @@ export class Endpoints {
         if (!this.app) this.app = { env: [] };
         if (!this.endpoints) this.endpoints = this.app.services;
         if (!this.annotations) this.annotations = this.app.annotations;
+
+        this.endpointsOriginal = this.endpoints;
     }
 
     view() {
@@ -28,7 +30,7 @@ export class Endpoints {
                 <div class="d-flex align-items-center justify-content-between">
                     <h5 class="card-title">${__html('Endpoints')}</h5>
                     <span class="d-flex" role="status" aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sliders2 ms-3 me-1 po text-primary ingress-settings" viewBox="0 0 16 16">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sliders2 ms-3 me-1 po text-primary ingress-settings d-none" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M10.5 1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4H1.5a.5.5 0 0 1 0-1H10V1.5a.5.5 0 0 1 .5-.5M12 3.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5m-6.5 2A.5.5 0 0 1 6 6v1.5h8.5a.5.5 0 0 1 0 1H6V10a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5M1 8a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2A.5.5 0 0 1 1 8m9.5 2a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V13H1.5a.5.5 0 0 1 0-1H10v-1.5a.5.5 0 0 1 .5-.5m1.5 2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/>
                         </svg>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle card-title ms-3 me-2 po text-primary add-endpoint" data-bs-toggle="modal" data-bs-target=".modal" viewBox="0 0 16 16" data-action="add" >
@@ -69,6 +71,7 @@ export class Endpoints {
 
         let cache = getSetting(this.app.id);
 
+        // render newly added endpoints (after ui is rendered)
         if (typeof this.endpoints !== "undefined") {
 
             // no records found
@@ -86,7 +89,7 @@ export class Endpoints {
         // render from YAML (first time loading)
         if (typeof this.endpoints === "undefined") {
 
-            console.log("redenr endpoints by YAML");
+            // console.log("render endpoints from YAML");
 
             // read endpoints
             if (cache.path) if (fs.existsSync(path.join(cache.path, 'endpoints.yaml'))) {
@@ -121,6 +124,8 @@ export class Endpoints {
                             }).join('');
                         }
                     });
+
+                    this.endpointsOriginal = JSON.parse(JSON.stringify(this.endpoints));
 
                 } catch (err) {
 
@@ -217,7 +222,7 @@ export class Endpoints {
             `;
 
             // vars
-            let portNew = 80, name = "", service = "", host = "." + this.app.slug + ".app.kenzap.cloud", active_public = 0, active_private = 1;
+            let portNew = 80, name = "", service = "", host = "." + this.app.slug + this.endpoint(), active_public = 0, active_private = 1;
 
             // prepare for editing
             if (action == 'edit') {
@@ -288,7 +293,7 @@ export class Endpoints {
 
                 e.preventDefault();
 
-                document.querySelector("#public-name").value = e.currentTarget.value.trim() + "." + this.app.slug + ".app.kenzap.cloud";
+                document.querySelector("#public-name").value = e.currentTarget.value.trim() + "." + this.app.slug + this.endpoint();
             }
 
             onKeyUp("#cluster-name", e => { if (action != 'edit') nameType(e); });
@@ -425,11 +430,13 @@ export class Endpoints {
                 });
             } catch (e) {
 
+                console.log(e);
+
                 parseError(e);
             }
         }
 
-        if (!this.annotations) return "";
+        // if (!this.annotations) return "";
 
         if (!this.annotations) this.annotations = {
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
@@ -447,12 +454,25 @@ export class Endpoints {
 
     save() {
 
+        console.log("save endpoints");
+
+        // this.createEndpoints();
+
+        // log(this.endpoints)
+
         let cache = getSetting(this.app.id);
 
         let annotations = this.getAnnotations(cache);
 
         // skip save if can not read annotations
         if (!annotations) return;
+
+        // log(this.app)
+
+        // skip save if no changes
+        if (JSON.stringify(this.endpointsOriginal) === JSON.stringify(this.endpoints)) { log("no change"); return; }
+
+        this.createEndpoints();
 
         // handle ingress
         let ingress = {
@@ -528,12 +548,97 @@ export class Endpoints {
         if (ingress.spec.rules.length) services.unshift(ingress);
 
         // no open hosts, delete ingress
-        if (!ingress.spec.rules.length) { this.app.dtc.forEach(dt => { run_script('cd ' + cache.path + ' && kubectl delete ingress ' + this.app.slug + '-ingress --kubeconfig=kubeconfig-' + dt + '.yaml', [], () => { }); }) }
+        if (!ingress.spec.rules.length) { this.app.clusters.forEach(cluster => { run_script('cd ' + cache.path + ' && kubectl delete ingress ' + this.app.slug + '-ingress --kubeconfig=kubeconfig-' + cluster + '.yaml', [], () => { }); }) }
 
         // convert json to final endpoints.yaml file
         let endpointFile = services.map(ef => { return yaml.dump(ef, {}); }).join("---\n");
 
         // store to file
         try { fs.writeFileSync(path.join(cache.path, 'endpoints.yaml'), endpointFile, 'utf-8'); } catch (e) { console.log(e); }
+
+        let cb = () => { }
+
+        // apply changes to cluster
+        this.app.clusters.forEach(cluster => { run_script('cd ' + cache.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster + '.yaml', [], cb); });
+    }
+
+    endpoint() {
+
+        let settings = getKenzapSettings();
+
+        return ".endpoint-" + settings.id + ".kenzap.cloud";
+    }
+
+    createEndpoints() {
+
+        let settings = getKenzapSettings();
+
+        if (!settings.id) settings.id = getToken(12);
+
+        // let cluster = this.app.clusters[0];
+
+        this.endpoints.forEach(endpoint => {
+
+            let ips = [];
+
+            settings.clusters.forEach(cluster => {
+
+                if (this.app.clusters.includes(cluster.id)) ips.push(cluster.servers[0].server);
+            });
+
+            // let cluster = settings.clusters.find(cluster => cluster.id == this.app.clusters[0]);
+
+            endpoint.ips = { "routing": "default", ips: ips };
+        });
+
+        log(settings.id);
+        log(this.endpoints);
+
+        // return;
+
+        // get free registry https://api.kenzap-apps.app.kenzap.cloud/v2/?cmd=create_endpoints&kenzap_id=Y4uR3s&app_slug=app-39987
+        fetch(API() + "?cmd=create_endpoints&kenzap_id=" + settings.id + "&app_id=" + this.app.id + "&endpoints=" + JSON.stringify(this.endpoints), {
+            method: 'post',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Kenzap-Locale': "en",
+                'Kenzap-Token': localStorage.getItem("kenzap_token")
+            }
+        })
+            .then(response => response.json())
+            .then(response => {
+
+                // global.state.loading = false;
+
+                // console.log(response);
+
+                // parse response
+                if (response.success) {
+
+                    // if (cb) cb(response.registry);
+
+                    saveKenzapSettings({ id: settings.id });
+
+                } else {
+
+                    hideLoader();
+
+                    switch (response.code) {
+
+                        case 411:
+
+                            alert(__html('Endpoint already exists'))
+                            break;
+                        default:
+                            parseError(response);
+                            break;
+                    }
+                }
+            })
+            .catch(error => {
+
+                parseError(error);
+            });
     }
 }

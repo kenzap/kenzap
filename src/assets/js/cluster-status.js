@@ -24,9 +24,9 @@ export class ClusterStatus {
      */
     init() {
 
-        if (!global.clusterStatusTimeout) { global.clusterStatusTimeout = setInterval(() => { this.getClusterStatus(); }, 30 * 1000); } else { console.log("skip getClusterStatus call"); }
+        if (!global.clusterStatusTimeout) { global.clusterStatusTimeout = setInterval(() => { this.getClusterStatus(); }, 15 * 1000); }
 
-        this.getClusterStatus();
+        // this.getClusterStatus();
     }
 
     /**

@@ -18,8 +18,8 @@ body{
   z-index: 10000;
 }
 
-div.toast{
-  z-index: 1000!important;
+div.toast-cont{
+  z-index: 2000!important;
 }
 
 @media (max-width: 500px) {

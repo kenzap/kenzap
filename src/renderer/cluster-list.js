@@ -1,7 +1,7 @@
 'use strict';
 
 import global from '../assets/js/global.js'
-import { __html, html, attr, toast, initBreadcrumbs, onClick, hideLoader, getKenzapSettings } from '../assets/js/helpers.js'
+import { __html, html, attr, toast, initBreadcrumbs, onClick, hideLoader, getKenzapSettings, saveKenzapSettings } from '../assets/js/helpers.js'
 import { DevTools } from '../assets/js/dev-tools.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
 import { getClusterList, formatClusterStatus } from '../assets/js/cluster-list-helpers.js'
@@ -35,6 +35,8 @@ export class ClusterList {
         global.state.dev = {};
 
         global.state.refreshClusters = () => { console.log("refreshClusters"); this.init(); }
+
+        if (!global.clusterStatusTimeout) { clearInterval(global.clusterStatusTimeout) }
 
         // load this page
         this.init();
@@ -286,6 +288,22 @@ export class ClusterList {
             global.state.clusterEditId = null;
 
             global.state.edgeClustersAdd = new ClusterAdd(global);
+        });
+
+        // delete cluster
+        onClick(".app-delete", e => {
+
+            e.preventDefault();
+
+            let id = e.currentTarget.dataset.id;
+
+            if (!confirm("Are you sure you want to delete this cluster?")) return;
+
+            this.clusters = this.clusters.filter(cluster => cluster.id !== id);
+
+            saveKenzapSettings({ "clusters": this.clusters });
+
+            this.init();
         });
 
         // app list
