@@ -200,10 +200,8 @@ export function devApp(id, cmd) {
 
         function startDevspaceSync() {
 
-            const devspacePath = child_process.execSync('command -v devspace').toString().trim();
-
             global.state.dev[id].status = "sync";
-            global.state.dev[id].proc = run_script('cd ' + cache.path + ' && rm -Rf .devspace && ' + devspacePath + ' sync -n ' + id + ' --config=devspace.yaml --kubeconfig=' + kubeconfig + ' --no-warn', [], cb);
+            global.state.dev[id].proc = run_script('cd ' + cache.path + ' && rm -Rf .devspace && ' + devspace + ' sync -n ' + id + ' --config=devspace.yaml --kubeconfig=' + kubeconfig + ' --no-warn', [], cb);
         }
     }
 

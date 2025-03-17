@@ -36,7 +36,7 @@ A user-friendly **desktop application** built with **Electron.js** to simplify K
 - **Kubectl** (required)
 
 ### **Download & Install**  
-1. Download the latest release for [macOS](#), [Windows](#), or [Linux](#).  
+1. Download the latest release for [macOS M1](https://kenzap.cloud/static/releases/Kenzap-latest-arm64.dmg), [Windows](#), or [Linux](#).  
 2. Run the installer and follow the prompts.  
 3. Launch the app and start configuring your Kubernetes cluster!  
 
@@ -44,7 +44,7 @@ A user-friendly **desktop application** built with **Electron.js** to simplify K
 ```bash
 git clone https://github.com/kenzap/kenzap.git  
 cd kenzap
-nvm use 16
+nvm use 20
 npm i  
 npm run dev  
 ```  
