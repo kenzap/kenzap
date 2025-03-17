@@ -19,15 +19,16 @@ function createMainWindow() {
     webPreferences: { nodeIntegration: true, contextIsolation: false }
   })
 
-  window.setTitle("Kenzap");
+  window.setTitle("KENZAP");
 
   window.on('page-title-updated', function (e) {
     e.preventDefault()
   });
 
-  // if (isDevelopment) {
+  // auto open browser inspect 
+  //if (isDevelopment) {
   window.webContents.openDevTools()
-  // }
+  //}
 
   if (isDevelopment) {
     window.loadURL(`http://localhost:${process.env.ELECTRON_WEBPACK_WDS_PORT}`)
@@ -75,7 +76,6 @@ app.on('ready', () => {
 
   global.state.dialog = dialog;
 
-  // console.log(global.state.dialog);
   Menu.setApplicationMenu(mainMenu);
 
   // electron folder picker dialog

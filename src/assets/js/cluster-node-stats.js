@@ -1,6 +1,6 @@
 import { __html, loadDependencies } from './helpers.js'
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_script } from './dev-tools.js'
+import { run_script, getKubectlPath } from './dev-tools.js'
 
 /**
  * Class representing the statistics of a cluster node.
@@ -81,13 +81,15 @@ export class ClusterNodeStats {
 
         let cb = (data) => { }
 
+        let kubectl = getKubectlPath();
+
         self.statsInterval = setInterval(() => {
 
             this.data = "";
 
             if (!document.querySelector(".cpu-stats")) { clearInterval(self.statsInterval); return; }
 
-            let proc = run_script('kubectl top nodes --kubeconfig=' + kubeconfig, [], () => { }, false);
+            let proc = run_script(kubectl + ' top nodes --kubeconfig=' + kubeconfig, [], () => { }, false);
 
             proc.stdout.on('data', (data) => {
 

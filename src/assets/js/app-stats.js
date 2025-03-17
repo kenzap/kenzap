@@ -2,7 +2,7 @@ import { __html, getSetting, loadDependencies, parseError, log } from './helpers
 import fs from "fs"
 import yaml from 'js-yaml';
 import * as path from 'path';
-import { run_script } from './dev-tools.js'
+import { run_script, getKubectlPath } from './dev-tools.js'
 import { getAppKubeconfig } from './app-status-helpers.js'
 
 /**
@@ -148,6 +148,8 @@ export class AppStats {
 
         self.getResourceRange();
 
+        let kubectl = getKubectlPath();
+
         let cb = (data) => {
 
         }
@@ -156,7 +158,7 @@ export class AppStats {
 
             if (!document.querySelector(".cpu-stats")) { clearInterval(self.statsInterval); return; }
 
-            let proc = run_script('cd ' + self.cache.path + ' && kubectl top pods -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' --sum=true', [], cb, false);
+            let proc = run_script('cd ' + self.cache.path + ' && ' + kubectl + ' top pods -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' --sum=true', [], cb, false);
 
             proc.stdout.on('data', (data) => {
 

@@ -78,8 +78,13 @@ div.toast-cont{
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 46px;
-  min-height: 46px;
+  min-width: 42px;
+  min-height: 42px;
+}
+
+.app-settings .timgc {
+  min-width: 52px;
+  min-height: 52px;
 }
 
 .bi-terminal:hover{

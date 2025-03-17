@@ -4,7 +4,7 @@ import os from 'os';
 import fs from 'fs';
 
 // version control variable, only one digit after dot, wrong: 1.0.19, 1.10.1
-export const version = "1.0.4";
+export const version = "1.0.6";
 
 // cross platform Kenzap home directory
 export const kenzapdir = path.join(process.platform === "win32" ? process.env.HOMEPATH : process.env.HOME, 'Kenzap');
@@ -27,6 +27,9 @@ export function log(...args) {
     if (process.env.NODE_ENV === 'development') {
         console.log(...args);
     }
+
+    // TODO: add logging to file
+    console.log(...args);
 }
 
 /**
@@ -443,7 +446,7 @@ export function initBreadcrumbs(data) {
 
         e.preventDefault();
 
-        console.log(e.target.dataset.href);
+        // console.log(e.target.dataset.href);
 
         for (let bc of data) {
 

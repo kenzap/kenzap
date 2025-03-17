@@ -3,10 +3,11 @@
 import global from '../assets/js/global.js'
 import { clipboard } from 'electron'
 import { __html, html, attr, toast, initBreadcrumbs, showLoader, onClick, formatStatus, getSetting, hideLoader, getKenzapSettings, log } from '../assets/js/helpers.js'
-import { checkEnvironment, deleteApp, DevTools } from '../assets/js/dev-tools.js'
+import { deleteApp, DevTools } from '../assets/js/dev-tools.js'
+import { checkEnvironment } from '../assets/js/dev-environment.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
 import { VersionControl } from '../assets/js/version-control.js'
-import { getAppList } from '../assets/js/app-list-helpers.js'
+import { getAppList, getAppIcon } from '../assets/js/app-list-helpers.js'
 import { AppProjects } from '../assets/js/app-projects.js'
 import { AppStatus } from '../assets/js/app-status.js'
 import { AppCreate } from './app-create.js'
@@ -14,6 +15,7 @@ import { Footer } from '../assets/js/app-footer.js'
 import { Settings } from './app-settings.js'
 import { ClusterList } from './cluster-list.js'
 import { Home } from './home.js'
+import loading from '../assets/img/loading.png';
 import yaml from 'js-yaml';
 import fs from "fs"
 import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
@@ -49,8 +51,6 @@ export class AppList {
 
         this.apps = getAppList();
         global.state.apps = this.apps;
-
-        // log(this.apps);
 
         // get current project
         this.project = (this.settings.projects.find(project => project.current) || {}).id || ""
@@ -207,9 +207,14 @@ export class AppList {
 
                     } catch (e) {
 
-                        // console.log(e);
+                        log(e);
                     }
                 }
+
+                // get icon
+                let icon = `<img src="${loading}" data-srcset="${loading}" class="img-fluid rounded" alt="App placeholder" srcset="${loading}">`;
+
+                if (app.app) if (app.app.logo) getAppIcon(app);
 
                 return `
                                                             <tr>
@@ -217,14 +222,7 @@ export class AppList {
                                                                     <div class="edge-status ${attr(global.state.dev[app.id].edgeStatus)}" data-id="${attr(app.id)}"></div>
                                                                     <div class="timgc app-settings" data-id="${attr(app.id)}">
                                                                         <a href="#" class="align-items-center justify-content-between">
-                                                                        ${app.app ? app.app.logo ?
-
-                        `<img src="${attr(app.app.logo)}" class="img-fluid rounded" alt="Events placeholder" srcset="${attr(app.app.logo)}">`
-                        :
-                        `<img src="https://cdn.kenzap.com/loading.png" data-srcset="https://cdn.kenzap.com/loading.png" class="img-fluid rounded" alt="Events placeholder" srcset="https://cdn.kenzap.com/loading.png">`
-                        :
-                        `<img src="https://cdn.kenzap.com/loading.png" data-srcset="https://cdn.kenzap.com/loading.png" class="img-fluid rounded" alt="Events placeholder" srcset="https://cdn.kenzap.com/loading.png">`
-                    }
+                                                                        ${icon}
                                                                         </a>
                                                                     </div>
                                                                 </td>

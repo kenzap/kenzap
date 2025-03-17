@@ -1,6 +1,8 @@
 
 import { __html, onClick } from './helpers.js'
 import { appList } from '../../renderer/app-list.js'
+import logo from '../img/kenzap.svg';
+import avatar from '../img/avatar.jpg';
 
 /**
  * Class representing the navigation header.
@@ -18,8 +20,6 @@ export class NavigationHeader {
         this.app = this.global.state.app;
 
         if (!this.app) this.app = { dtc: [] };
-
-        if (!localStorage.getItem('avatar')) localStorage.setItem('avatar', 'https://account.kenzap.com/images/default_avatar.jpg');
     }
 
     /**
@@ -36,7 +36,7 @@ export class NavigationHeader {
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#212529" class="bi bi-arrow-left me-2 d-none" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"></path>
                             </svg>
-                            <img style="max-height: 23px;" src="https://cdn.kenzap.com/logo.svg" alt="kenzap logo">
+                            <img style="max-height: 22px;" src="${logo}" alt="Kenzap Logo">
                         </a>
                         <div class="ms-sm-2 ms-0 dropdown d-none">
                             <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0 h-space" type="button" id="spaceSelect" data-bs-toggle="dropdown" aria-expanded="false" data-id="1000000">Nuremberg</button>
@@ -60,7 +60,7 @@ export class NavigationHeader {
                     <div class="d-flex flex-column align-items-end" id="navbarCollapse">
                         <ul class="navbar-nav me-auto mb-0 mb-md-0">
                             <li class="nav-item dropdown">
-                                <a class="" href="https://account.kenzap.com/profile/" id="nav-account" data-bs-toggle="dropdown" aria-expanded="false"><img src="${this.getAvatar()}" style="height:40px;width:40px;border-radius:50%;" alt="profile"></a>
+                                <a class="" href="https://account.kenzap.cloud/" id="nav-account" data-bs-toggle="dropdown" aria-expanded="false"><img src="${this.getAvatar()}" style="height:40px;width:40px;border-radius:50%;" alt="profile"></a>
                                 <ul class="dropdown-menu dropdown-menu-end" data-popper-placement="left-start" aria-labelledby="nav-account" style="position: absolute;">
                                     <li><a class="dropdown-item open-dashboard" href="https://dashboard.kenzap.cloud/">${__html('Dashboard')}</a></li>
                                     <li><a class="dropdown-item open-profile" href="https://account.kenzap.cloud/profile/">${__html('My profile')}</a></li>
@@ -124,7 +124,7 @@ export class NavigationHeader {
 
     getAvatar() {
 
-        return localStorage.getItem('avatar');
+        return localStorage.getItem('avatar') ? localStorage.getItem('avatar') : avatar;
     }
 
     /**

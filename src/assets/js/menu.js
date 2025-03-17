@@ -18,20 +18,20 @@ const template = [
             {
                 label: 'About Kenzap',
                 click: async () => {
-                    require('electron').shell.openExternal("https://kenzap.com");
+                    require('electron').shell.openExternal("https://kenzap.cloud");
                 }
             },
             {
-                label: 'Contact Support',
+                label: 'Slack Channel',
                 click: async () => {
-                    require('electron').shell.openExternal("https://kenzap.com/kenzap-cloud/");
+                    require('electron').shell.openExternal("https://kenzap.slack.com/?redir=%2Farchives%2Fcommunity%3Fname%3Dcommunity");
                 }
             },
             {
                 type: 'separator'
             },
             {
-                label: 'Quit Kenzap',
+                label: 'Quit',
                 role: 'quit'
             }
         ]

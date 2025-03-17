@@ -1,7 +1,7 @@
 import global from "./global.js"
 import { __html, attr, html, onClick, getSetting, toast, onChange, showLoader, hideLoader, API, loadDependencies, parseError } from './helpers.js'
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_script } from './dev-tools.js'
+import { run_script, getKubectlPath } from './dev-tools.js'
 import { formatClusterNode } from './cluster-list-helpers.js'
 
 /**
@@ -78,7 +78,9 @@ export class ClusterNodeList {
 
         if (!document.querySelector("cluster-node-list")) { clearInterval(this.statsInterval); return; }
 
-        let proc = run_script('kubectl get nodes -o json --kubeconfig=' + kubeconfig, [], () => { }, false);
+        let kubectl = getKubectlPath();
+
+        let proc = run_script(kubectl + ' get nodes -o json --kubeconfig=' + kubeconfig, [], () => { }, false);
 
         proc.stdout.on('data', (data) => {
 

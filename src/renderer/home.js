@@ -3,6 +3,7 @@
 import global from '../assets/js/global.js'
 import { __html, html, attr, initBreadcrumbs, onClick, hideLoader, getKenzapSettings } from '../assets/js/helpers.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
+import { checkEnvironment } from '../assets/js/dev-environment.js'
 import { AppList } from './app-list.js'
 import { Footer } from '../assets/js/app-footer.js'
 import { ClusterList } from './cluster-list.js'
@@ -36,6 +37,14 @@ export class Home {
 
         // global.state.projects = [];
         this.settings = getKenzapSettings();
+
+        // check if docker desktop and other services are working
+        checkEnvironment();
+
+        // get current project
+        this.project = (this.settings.projects.find(project => project.current) || {}).id || ""
+
+        global.state.project = this.project;
 
         // global.state.apps = [];
         this.view();
@@ -90,7 +99,7 @@ export class Home {
                                 <div class="px-2- mt-2 d-none">
                                     <h4 class="card-title d-flex align-items-center justify-content-between bd-highlight">
                                         <select class="form-select project-select form-select-lg mb-0 border-0 ps-0 pt-0 pb-0 bg-transparent text-accent" aria-label="Select project filter" style="width:auto;">
-                                            ${global.state.settings.projects.map((p, i) => {
+                                            ${this.settings.projects.map((p, i) => {
 
             return `<option ${p.current ? 'selected' : ''} value="${attr(p.id)}">${html(p.project)}</option>`
 
@@ -152,8 +161,6 @@ export class Home {
 
         // navigate
         onClick(".link-group a", e => {
-
-            console.log("clicked");
 
             e.preventDefault();
 

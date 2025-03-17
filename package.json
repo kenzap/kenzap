@@ -1,13 +1,14 @@
 {
-  "name": "kenzap",
-  "version": "1.0.2",
-  "license": "MIT",
+  "name": "Kenzap",
+  "version": "1.0.6",
+  "license": "LGPL-3.0-or-later",
   "scripts": {
     "dev": "electron-webpack dev",
     "compile": "electron-webpack",
     "dist": "yarn compile && electron-builder",
     "distx": "yarn compile && electron-builder -m --x64",
-    "dist:dir": "yarn dist --dir -c.compression=store -c.mac.identity=null"
+    "dist:dir": "yarn dist --dir -c.compression=store -c.mac.identity=null",
+    "start": "env PATH=$PATH:/usr/local/bin electron ."
   },
   "dependencies": {
     "@kenzap/k-cloud": "latest",
@@ -34,7 +35,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "latest",
     "@eslint/js": "^9.18.0",
     "@types/ace": "latest",
-    "electron": "latest",
+    "electron": "^35.0.2",
     "electron-builder": "latest",
     "electron-webpack": "latest",
     "eslint": "^9.18.0",

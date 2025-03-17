@@ -1,6 +1,6 @@
 
 import { __html, attr, formatDeploymentStatus } from './helpers.js'
-import { run_script } from './dev-tools.js'
+import { run_script, getKubectlPath } from './dev-tools.js'
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
 import yaml from 'js-yaml';
 
@@ -102,7 +102,9 @@ export class ClusterDeployments {
 
         let kubeconfig = getClusterKubeconfig(this.cluster.id);
 
-        let proc = run_script('kubectl get deployments -A --kubeconfig=' + kubeconfig + ' -o yaml', [], cb, false);
+        let kubectl = getKubectlPath();
+
+        let proc = run_script(kubectl + ' get deployments -A --kubeconfig=' + kubeconfig + ' -o yaml', [], cb, false);
 
         this.data = '';
 

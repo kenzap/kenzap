@@ -4,6 +4,7 @@ import { ipcRenderer } from 'electron'
 import global from '../assets/js/global.js'
 import { __html, html, attr, toast, initBreadcrumbs, showLoader, hideLoader, kenzapdir, getDefaultAppPath, cacheSettings, getKenzapSettings, log } from '../assets/js/helpers.js'
 import { AppClusterPicker } from '../assets/js/app-cluster-picker.js'
+import { v2, https } from '../assets/js/app-registry-helpers.js'
 import { DockerFile } from '../assets/js/app-docker-file.js'
 import { DockerApps } from '../assets/js/app-docker-apps.js'
 import { AppRegistry } from '../assets/js/app-registry.js'
@@ -429,34 +430,49 @@ export class AppCreate {
         data.keyData = fs.readFileSync(path.join(data.path, `${data.slug}.key`)).toString('base64').replace(/\n/g, '');
 
         // kubeconfig.yaml
-        let kubeconfig = fs.readFileSync(path.join(__dirname, "../assets/templates/app/kubeconfig-template.yaml"), 'utf8');
-        kubeconfig = kubeconfig.replace(/template_namespace/g, data.slug);
-        kubeconfig = kubeconfig.replace(/template_cluster/g, "https://" + cluster.servers[0].server + ":16443");
-        kubeconfig = kubeconfig.replace(/template_user/g, `${data.slug}-${data.registry.user}`);
-        kubeconfig = kubeconfig.replace(/template_name/g, data.slug);
-        kubeconfig = kubeconfig.replace(/template_certdata/g, data.certData);
-        kubeconfig = kubeconfig.replace(/template_keydata/g, data.keyData);
-        fs.writeFileSync(path.join(data.path, `kubeconfig-${id}.yaml`), kubeconfig);
+        // let kubeconfig = fs.readFileSync(path.join(__dirname, "../assets/templates/app/kubeconfig-template.yaml"), 'utf8');
+        // kubeconfig = kubeconfig.replace(/template_namespace/g, data.slug);
+        // kubeconfig = kubeconfig.replace(/template_cluster/g, "https://" + cluster.servers[0].server + ":16443");
+        // kubeconfig = kubeconfig.replace(/template_user/g, `${data.slug}-${data.registry.user}`);
+        // kubeconfig = kubeconfig.replace(/template_name/g, data.slug);
+        // kubeconfig = kubeconfig.replace(/template_certdata/g, data.certData);
+        // kubeconfig = kubeconfig.replace(/template_keydata/g, data.keyData);
+        // fs.writeFileSync(path.join(data.path, `kubeconfig-${id}.yaml`), kubeconfig);
+
+        // Copy kubeconfig from parent folder /.kenzap
+        let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+        const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
+        const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
+
+        if (fs.existsSync(kubeconfigSource)) {
+            fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
+            console.log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
+        } else {
+            console.log(`Kubeconfig file not found at ${kubeconfigSource}`);
+        }
 
         // app.yaml
         let app = fs.readFileSync(path.join(__dirname, "../assets/templates/app/app.yaml"), 'utf8');
         app = app.replace(/template_username/g, data.registry.user);
         app = app.replace(/template_slug/g, data.slug);
-        app = app.replace(/template_registry/g, `${data.registry.domain}/v2`);
+        app = app.replace(/template_registry/g, `${v2(data.registry.domain)}`);
         fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
 
         // devspace.yaml
         let devspace = fs.readFileSync(path.join(__dirname, "../assets/templates/app/devspace.yaml"), 'utf8');
         devspace = devspace.replace(/template_username/g, data.registry.user);
         devspace = devspace.replace(/template_password/g, data.registry.pass);
-        devspace = devspace.replace(/template_registry/g, `${data.registry.domain}/v2`);
+        devspace = devspace.replace(/template_url_registry/g, `${https(v2(data.registry.domain))}`);
+        devspace = devspace.replace(/template_registry/g, `${v2(data.registry.domain)}`);
         devspace = devspace.replace(/template_slug/g, data.slug);
         fs.writeFileSync(path.join(data.path, 'devspace.yaml'), devspace);
 
         // endpoints.yaml
+        let template_endpoint = data.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
         let endpoints = fs.readFileSync(path.join(__dirname, "../assets/templates/app/endpoints.yaml"), 'utf8');
         endpoints = endpoints.replace(/template_namespace/g, data.slug);
-        endpoints = endpoints.replace(/template_endpoint/g, data.slug + ".endpoint-" + settings.id + ".kenzap.cloud");
+        endpoints = endpoints.replace(/template_slug/g, data.slug);
+        endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
         fs.writeFileSync(path.join(data.path, 'endpoints.yaml'), endpoints);
 
         // .gitignore

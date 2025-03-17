@@ -1,9 +1,9 @@
 'use strict';
 
-import { __html, getDefaultAppPath, getSetting } from './helpers.js'
+import { __html, getDefaultAppPath, getSetting, log } from './helpers.js'
 import fs from 'fs';
 import path from 'path';
-
+import simpleIcons from '../libs/simple-icons.json';
 
 /**
  * Retrieves a list of application directories that contain an 'app.yaml' file.
@@ -13,7 +13,7 @@ import path from 'path';
  */
 export function getAppList() {
 
-    // /Users/pavellukasenko/Kenzap
+    // /Users/username/Kenzap
     const baseDir = getDefaultAppPath();
 
     function getDirectories(srcPath) {
@@ -31,6 +31,39 @@ export function getAppList() {
         }
     });
 
-    // console.log(appList);
     return appList;
+}
+
+/**
+ * Retrieves the icon for the specified application.
+ *  
+ * @param {string} app - The application object.
+ * @returns {string} The icon for the specified application.
+ */
+export function getAppIcon(app) {
+
+    let conversions = { "httpd": "apache", "node": "nodedotjs" };
+    let slug = conversions[app.app.slug] || app.app.slug;
+    let url = `https://cdn.jsdelivr.net/npm/simple-icons@v14/icons/${slug}.svg`;
+
+    // log(simpleIcons)
+
+    let icon = simpleIcons.find(i => i.slug === slug) ||
+        simpleIcons.find(i => i.title.toLowerCase() === slug.toLowerCase()) ||
+        simpleIcons.find(i => i.title.toLowerCase().includes(slug.toLowerCase()));
+
+    let officialColor = (icon && icon.hex) ? icon.hex : "000000";
+
+    // log(app.id + " - " + officialColor);
+
+    fetch(url)
+        .then(response => response.text())
+        .then(svgText => {
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(svgText, "image/svg+xml");
+            let svg = doc.querySelector("svg");
+
+            svg.setAttribute("fill", "#" + officialColor);
+            document.querySelector(".timgc[data-id='" + app.id + "']").innerHTML = svg.outerHTML;
+        });
 }

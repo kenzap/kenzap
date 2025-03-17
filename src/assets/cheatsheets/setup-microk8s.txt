@@ -52,7 +52,7 @@ sudo openssl req -nodes -newkey rsa:2048 -keyout kube_certs/key.pem -out kube_ce
 sudo microk8s.kubectl --namespace kube-system delete secret/kubernetes-dashboard-certs
 sudo microk8s.kubectl --namespace kube-system create secret generic kubernetes-dashboard-certs --from-file=./kube_certs
 
-# Verify certs are loaded then clean up local artifacts
+# verify certs are loaded then clean up local artifacts
 sudo microk8s.kubectl --namespace kube-system describe secret/kubernetes-dashboard-certs
 sudo rm -rf kube_certs
 

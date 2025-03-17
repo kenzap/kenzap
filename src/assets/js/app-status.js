@@ -2,9 +2,10 @@
 import global from "./global.js"
 import { __html, attr, html, getSetting, cacheSettings, log } from './helpers.js'
 import yaml from 'js-yaml';
-import { run_script } from './dev-tools.js'
+import { run_script, getKubectlPath, getDevspacePath } from './dev-tools.js'
 import { getAppKubeconfig } from './app-status-helpers.js'
 import { getAppList } from './app-list-helpers.js'
+import child_process from "child_process"
 
 export class AppStatus {
 
@@ -63,7 +64,9 @@ export class AppStatus {
 
             // TODO add support for multi cluster state
             // console.log('cd '+this.cache.path+' && kubectl get deployments --kubeconfig='+kubeconfig+' -o=yaml');
-            global.state.dev[app.id].proc = run_script('cd ' + this.cache.path + ' && kubectl get deployments -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' -o=yaml', [], cb, false);
+            let kubectl = getKubectlPath();
+
+            global.state.dev[app.id].proc = run_script('cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' -o=yaml', [], cb, false);
 
             global.state.dev[app.id].proc.stdout.on('data', (data) => {
 
@@ -75,6 +78,7 @@ export class AppStatus {
                 }
 
                 try {
+
                     // Here is the output
                     const items = yaml.load(data.toString(), 'utf8');
 
@@ -89,6 +93,20 @@ export class AppStatus {
                             document.querySelector(".edge-status[data-id='" + app.id + "']").classList.remove("pending");
                             document.querySelector(".edge-status[data-id='" + app.id + "']").classList.remove("d-none");
                         }
+
+                        // get image tag
+                        let tag = global.state.dev[app.id].edgeImage = item.spec.template.spec.containers[0].image.split(":")[1];
+
+                        if (!app.tags) app.tags = [];
+
+                        if (app.tags.indexOf(tag) < 0) {
+
+                            app.tags.push(tag);
+
+                            cacheSettings(app);
+                        }
+
+                        // console.log("TAG", tag);
 
                         if (!item.status) return;
 
@@ -176,7 +194,9 @@ export class AppStatus {
 
         if (!kubeconfig) return;
 
-        global.state.dev[id].procPod = run_script('cd ' + cache.path + ' && kubectl get pods --kubeconfig=' + kubeconfig + ' -o=yaml', [], null, false);
+        let kubectl = getKubectlPath();
+
+        global.state.dev[id].procPod = run_script('cd ' + cache.path + ' && ' + kubectl + ' get pods --kubeconfig=' + kubeconfig + ' -o=yaml', [], null, false);
         global.state.dev[id].procPod.stdout.on('data', (data) => {
 
             // find pod name
@@ -242,8 +262,8 @@ export class AppStatus {
                 }
             }
 
-            global.state.dev[id].procLog = run_script('cd ' + cache.path + ' && kubectl logs ' + pod + ' --kubeconfig=' + kubeconfig, [], null, false, callback_response_logs);
-            global.state.dev[id].procLog = run_script('cd ' + cache.path + ' && kubectl events ' + app.slug + ' --kubeconfig=' + kubeconfig + ' -o=yaml --', [], null, false, callback_response_events);
+            global.state.dev[id].procLog = run_script('cd ' + cache.path + ' && ' + kubectl + ' logs ' + pod + ' --kubeconfig=' + kubeconfig, [], null, false, callback_response_logs);
+            global.state.dev[id].procLog = run_script('cd ' + cache.path + ' && ' + kubectl + ' events ' + app.slug + ' --kubeconfig=' + kubeconfig + ' -o=yaml --', [], null, false, callback_response_events);
         });
     }
 }

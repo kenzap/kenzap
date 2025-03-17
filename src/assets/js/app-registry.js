@@ -1,6 +1,6 @@
 
-import { __html, attr, getKenzapSettings } from './helpers.js'
-import { getAppRegistry } from './app-registry-helpers.js'
+import { __html, attr, getKenzapSettings, saveKenzapSettings } from './helpers.js'
+import { getAppRegistry, updateDevspace, deleteRegistryTag, updateApp } from './app-registry-helpers.js'
 
 export class AppRegistry {
 
@@ -28,7 +28,7 @@ export class AppRegistry {
                         </svg>
                     </span>
                 </div>
-                <p class="form-text">${__html('You can provide your own registry or use the secured Kenzap Cloud registry.')}</p>
+                <p class="form-text">${__html('This app uses <a href="#">%1$</a> image tag.', this.global.state.app.tags ? this.global.state.app.tags[this.global.state.app.tags.length - 1] : "-")}</p>
                 <div class="mb-3 row d-none-">
                     <label for="appRegistryDomain" class="col-sm-3 col-form-label ">${__html('Registry')}</label>
                     <div class="col-sm-9">
@@ -74,13 +74,27 @@ export class AppRegistry {
         return this.registry;
     }
 
+    save() {
+
+        let settings = getKenzapSettings();
+
+        saveKenzapSettings({ id: settings.id, registry: this.registry });
+
+        updateDevspace(this.global.state.app, this.registry);
+
+        updateApp(this.global.state.app, this.registry);
+    }
+
     init() {
 
         this.settings = getKenzapSettings();
 
         if (this.settings.registry) this.registry = this.settings.registry;
 
-        if (!this.settings.registry) getAppRegistry((registry) => {
+        // if (!this.settings.registry) 
+        getAppRegistry(this.global.state.app, (registry) => {
+
+            // console.log(this.registry, registry);
 
             this.registry = registry;
 
@@ -88,5 +102,21 @@ export class AppRegistry {
         });
 
         this.view();
+
+        this.cleanup();
+    }
+
+    cleanup() {
+
+        let tag = "";
+
+        if (this.global.state.app.tags) {
+
+            tag = this.global.state.app.tags[this.global.state.app.tags.length - 1];
+
+            // console.log("removing tag", tag);
+
+            deleteRegistryTag(this.global.state.app, tag);
+        }
     }
 }

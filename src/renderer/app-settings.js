@@ -2,13 +2,13 @@
 
 import { ipcRenderer } from 'electron'
 import global from '../assets/js/global.js'
-import { __html, html, attr, toast, initBreadcrumbs, cacheSettings, getSetting, getDefaultAppPath, getKenzapSettings, hideLoader, log } from '../assets/js/helpers.js'
+import { __html, html, attr, toast, initBreadcrumbs, cacheSettings, getDefaultAppPath, getKenzapSettings, hideLoader, log } from '../assets/js/helpers.js'
 import { AppClusterPicker } from '../assets/js/app-cluster-picker.js'
 import { DockerFile } from '../assets/js/app-docker-file.js'
 import { Endpoints } from '../assets/js/app-endpoints.js'
 import { AppRegistry } from '../assets/js/app-registry.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
-import { getAppList } from '../assets/js/app-list-helpers.js'
+import { getAppList, getAppIcon } from '../assets/js/app-list-helpers.js'
 import { AppStats } from '../assets/js/app-stats.js'
 import { AppResources } from '../assets/js/app-resources.js'
 import { AppStatus } from '../assets/js/app-status.js'
@@ -22,6 +22,10 @@ import "../assets/libs/gstatic.com_charts_loader.js"
 import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
 import "../assets/scss/app.css"
 import "../assets/scss/settings.css"
+import * as path from 'path';
+import fs from "fs"
+import loading from '../assets/img/loading.png';
+
 /** 
  * Settings class. App settings page.
  * Inits configuration components of:
@@ -125,6 +129,11 @@ export class Settings {
 
     view() {
 
+        // get icon
+        let icon = `<img src="${loading}" data-srcset="${loading}" class="img-fluid rounded" alt="App placeholder" srcset="${loading}">`;
+
+        if (this.app.app) if (this.app.app.logo) getAppIcon(this.app);
+
         document.querySelector('body').innerHTML = `
             <navigation-header></navigation-header>
             <div class="container p-edit app-settings">
@@ -166,14 +175,7 @@ export class Settings {
                                         <div class="edge-status ${attr(global.state.dev[this.app.id].edgeStatus)}" data-id="${attr(this.app.id)}"></div>
                                         <div class="timgc app-settings" data-id="${attr(this.app.id)}">
                                             <a href="#">
-                                            ${this.app.app ? this.app.app.logo ?
-
-                `<img src="${attr(this.app.app.logo)}" class="img-fluid rounded" alt="Events placeholder" srcset="${attr(this.app.app.logo)}">`
-                :
-                `<img src="https://cdn.kenzap.com/loading.png" data-srcset="https://cdn.kenzap.com/loading.png" class="img-fluid rounded" alt="Events placeholder" srcset="https://cdn.kenzap.com/loading.png">`
-                :
-                `<img src="https://cdn.kenzap.com/loading.png" data-srcset="https://cdn.kenzap.com/loading.png" class="img-fluid rounded" alt="Events placeholder" srcset="https://cdn.kenzap.com/loading.png">`
-            }
+                                            ${icon}
                                             </a>
                                         </div>
                                         <div class="ms-3">
@@ -206,9 +208,9 @@ export class Settings {
                                                 <select id="appProject" class="form-select project-select form-select-lg- mb-0" aria-label="Large select example" style="width:100%;">
                                                     ${this.settings.projects.map((p, i) => {
 
-                return `<option ${p.id == this.app.project ? 'selected' : ''} value="${attr(p.id)}">${html(p.project)}</option>`
+            return `<option ${p.id == this.app.project ? 'selected' : ''} value="${attr(p.id)}">${html(p.project)}</option>`
 
-            }).join('')
+        }).join('')
             }
                                                 </select>
                                             </div>
@@ -279,6 +281,23 @@ export class Settings {
                 app: getAppDetails(this.app.id),
                 users: [],
             };
+
+            let id = "GJDmHH";
+
+            // Copy kubeconfig from parent folder /.kenzap
+            let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+
+            const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
+            const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
+
+            if (fs.existsSync(kubeconfigSource)) {
+                fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
+                log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
+            } else {
+                log(`Kubeconfig file not found at ${kubeconfigSource}`);
+            }
+
+            this.appRegistry.save();
 
             this.endpoints.save();
 
