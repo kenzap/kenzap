@@ -30,13 +30,13 @@ A user-friendly **desktop application** built with **Electron.js** to simplify K
 ## 🛠 **Installation**  
 
 ### **Prerequisites**  
-- **Node.js** (version 16.x or higher recommended)  
+- **Node.js** (version 20.x or higher recommended)  
 - **Docker** (required)
 - **Devspace** (required)
 - **Kubectl** (required)
 
 ### **Download & Install**  
-1. Download the latest release for [macOS M1](https://kenzap.cloud/static/releases/Kenzap-latest-arm64.dmg), [Windows](#), or [Linux](#).  
+1. Download the latest release for [macOS](https://kenzap.cloud/static/releases/Kenzap-latest-arm64.dmg), [Windows](#), or [Linux](#).  
 2. Run the installer and follow the prompts.  
 3. Launch the app and start configuring your Kubernetes cluster!  
 
@@ -67,7 +67,8 @@ For detailed guidance, check our [Documentation](#).
 Stay updated, share feedback, and connect with other developers:  
 - 💬 [Join Slack Community](https://kenzap.slack.com/channels/community)  
 - 🐦 [Follow us on Twitter](https://twitter.com/kenzap)
-- 👨🏼‍💻 [Chat with CTO on LinkedIn](https://linkedin.com/in/pavel-lukasenko)
+- 🔺 [Comment on Reddit](https://www.reddit.com/r/kubernetes/comments/1jckjsm/building_a_ui_for_kubernetes_helpful_or_useless/)
+- 👨🏼‍💻 [Connect on LinkedIn](https://linkedin.com/in/pavel-lukasenko)
 
 ---
 
