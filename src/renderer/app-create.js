@@ -4,9 +4,11 @@ import { ipcRenderer } from 'electron'
 import global from '../assets/js/global.js'
 import { __html, html, attr, toast, initBreadcrumbs, showLoader, hideLoader, kenzapdir, getDefaultAppPath, cacheSettings, getKenzapSettings, log } from '../assets/js/helpers.js'
 import { AppClusterPicker } from '../assets/js/app-cluster-picker.js'
+import { Endpoints } from '../assets/js/app-endpoints.js'
 import { v2, https } from '../assets/js/app-registry-helpers.js'
 import { DockerFile } from '../assets/js/app-docker-file.js'
 import { DockerApps } from '../assets/js/app-docker-apps.js'
+import { AppCustomControls } from '../assets/js/app-custom-controls.js'
 import { AppRegistry } from '../assets/js/app-registry.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
 import { Footer } from '../assets/js/app-footer.js'
@@ -26,7 +28,7 @@ import "../assets/scss/app.css"
 /** 
  * App creation class. Similar to app settings page.
  * Inits configuration components of:
- * Dockerfile, endpoints, data centers, users, app resources.
+ * Dockerfile, endpoints, data centers, users, app resources, image tailored custom controls.
  *
  * @link 
  * @since 1.0.0
@@ -35,10 +37,14 @@ import "../assets/scss/app.css"
  */
 export class AppCreate {
 
-    constructor(id) {
+    constructor(app) {
+
+        log('AppCreate', app);
 
         global.state.page = "app-create";
-        global.state.app = {};
+        global.state.app = app;
+
+        this.app = app;
 
         // load this page
         this.init();
@@ -58,12 +64,15 @@ export class AppCreate {
         this.appClusterPicker.init();
 
         // docker file
-        this.dockerFile = new DockerFile(global);
-        this.dockerFile.init();
+        // this.dockerFile = new DockerFile(global);
+        // this.dockerFile.init();
 
-        // docker app selection
-        this.dockerApps = new DockerApps(global);
-        this.dockerApps.init();
+        // // docker app selection
+        // this.dockerApps = new DockerApps(global);
+        // this.dockerApps.init();
+        // init custom controls
+        this.appCustomControls = new AppCustomControls(global);
+        this.appCustomControls.init();
 
         // app registry
         this.appRegistry = new AppRegistry(global);
@@ -91,6 +100,11 @@ export class AppCreate {
         hideLoader();
 
         this.listeners();
+
+        // // TODO remove
+        // const templateFolder = path.join(__dirname, "..", "templates", "apps", this.app.image, this.app.id);
+
+        // log('Template Folder', templateFolder);
     }
 
     view() {
@@ -100,7 +114,7 @@ export class AppCreate {
             <div class="container p-edit app-create">
                 <div class="d-flex justify-content-between bd-highlight mb-3">
                     <nav class="bc" aria-label="breadcrumb"></nav>
-                    <div class="">
+                    <div>
                         <a style="margin-right:16px;" class="preview-link nounderline d-none" target="_blank" href="#">${__html('template')}<i class="mdi mdi-monitor"></i></a>
                         <button class="btn btn-primary d-flex align-items-center mt-md-0 mt-2 btn-app-create" type="button">
                             <span class="d-flex" role="status" aria-hidden="true">
@@ -113,11 +127,11 @@ export class AppCreate {
                         </button>
                     </div>
                 </div>
-                <div class="row-">
-                    <div class="col-lg-12- grid-margin- stretch-card-">
+                <div>
+                    <div>
                         <div class="card- border-white- shadow-sm-">
                             <div class="card-body- p-0">
-                                <div class="px-2- mt-2">
+                                <div class="mt-2 pb-1">
                                     <h4 class="card-title app-title">${__html('New App')}</h4>
                                     <p class="form-text">
                                         ${__html('Define <a href="#">core</a> app settings.')}
@@ -167,10 +181,9 @@ export class AppCreate {
                                             </div>
                                         </div>
                                     </div>
+                                    <app-custom-controls></app-custom-controls>
                                     <app-cluster-picker></app-cluster-picker>
                                     <app-registry></app-registry>
-                                    <docker-apps></docker-apps>
-                                    <docker-file></docker-file>
                                 </div>
                             </div>
                         </div>
@@ -231,8 +244,9 @@ export class AppCreate {
             data.description = document.querySelector("#appDescription").value.trim();
             data.keywords = document.querySelector("#appKeywords").value.trim();
             data.registry = this.appRegistry.get();
-            data.app = this.dockerApps.get();
-            data.app.dockerfile = this.dockerFile.get();
+
+            data.app = this.app;
+            data.dockerfiles = this.appCustomControls.getDockerfiles();
 
             data.status = "0";
             data.img = [];
@@ -244,7 +258,7 @@ export class AppCreate {
             if (data.title.length < 4) { alert(__html('Please provide longer title')); return; }
             if (data.path.length < 4) { alert(__html('Please provide valid app path')); return; }
             if (data.clusters.length == 0) { alert(__html('Please select your cluster')); return; }
-            if (!data.app.dockerfile) { alert(__html('Please define Dockerfile')); return; }
+            // if (!data.app.dockerfile) { alert(__html('Please define Dockerfile')); return; }
 
             // create app folder if not exists
             if (!fs.existsSync(data.path)) { fs.mkdirSync(data.path); }
@@ -344,7 +358,7 @@ export class AppCreate {
         let step3 = (response) => {
 
             // create user role binding
-            let certRequest = fs.readFileSync(path.join(__dirname, "../assets/templates/sh/cert_request.yaml")).toString();
+            let certRequest = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "sh", "cert_request.yaml")).toString();
 
             // this.console(certRequest);
 
@@ -388,7 +402,7 @@ export class AppCreate {
             data.keyData = fs.readFileSync(path.join(data.path, `${data.slug}.key`)).toString('base64').replace(/\n/g, '');
 
             // create user role binding
-            let userRolesTemplate = fs.readFileSync(path.join(__dirname, '../assets/templates/sh/user-roles.yaml'), 'utf8');
+            let userRolesTemplate = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "sh", "user-roles.yaml"), 'utf8');
             userRolesTemplate = userRolesTemplate.replace(/kenzap-slug/g, data.slug);
             userRolesTemplate = userRolesTemplate.replace(/kenzap-namespace/g, data.slug);
             fs.writeFileSync(path.join(data.path, `${data.slug}-user-roles.yaml`), userRolesTemplate);
@@ -397,7 +411,7 @@ export class AppCreate {
 
         let step9 = () => {
 
-            let userRoleBindingTemplate = fs.readFileSync(path.join(__dirname, '../assets/templates/sh/user-role-binding.yaml'), 'utf8');
+            let userRoleBindingTemplate = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "sh", "user-role-binding.yaml"), 'utf8');
             userRoleBindingTemplate = userRoleBindingTemplate.replace(/kenzap-slug/g, data.slug);
             userRoleBindingTemplate = userRoleBindingTemplate.replace(/kenzap-namespace/g, data.slug);
             fs.writeFileSync(path.join(data.path, `${data.slug}-user-role-binding.yaml`), userRoleBindingTemplate);
@@ -423,24 +437,16 @@ export class AppCreate {
         // get cluster
         let cluster = settings.clusters.find(cluster => cluster.id == id);
 
+        // return;
+
         // this.console(cluster);
 
         // get cert data
         data.certData = fs.readFileSync(path.join(data.path, `${data.slug}.crt`)).toString('base64').replace(/\n/g, '');
         data.keyData = fs.readFileSync(path.join(data.path, `${data.slug}.key`)).toString('base64').replace(/\n/g, '');
 
-        // kubeconfig.yaml
-        // let kubeconfig = fs.readFileSync(path.join(__dirname, "../assets/templates/app/kubeconfig-template.yaml"), 'utf8');
-        // kubeconfig = kubeconfig.replace(/template_namespace/g, data.slug);
-        // kubeconfig = kubeconfig.replace(/template_cluster/g, "https://" + cluster.servers[0].server + ":16443");
-        // kubeconfig = kubeconfig.replace(/template_user/g, `${data.slug}-${data.registry.user}`);
-        // kubeconfig = kubeconfig.replace(/template_name/g, data.slug);
-        // kubeconfig = kubeconfig.replace(/template_certdata/g, data.certData);
-        // kubeconfig = kubeconfig.replace(/template_keydata/g, data.keyData);
-        // fs.writeFileSync(path.join(data.path, `kubeconfig-${id}.yaml`), kubeconfig);
-
         // Copy kubeconfig from parent folder /.kenzap
-        let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+        let appFolder = path.join(getDefaultAppPath(), '.kenzap');
         const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
         const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
 
@@ -452,14 +458,14 @@ export class AppCreate {
         }
 
         // app.yaml
-        let app = fs.readFileSync(path.join(__dirname, "../assets/templates/app/app.yaml"), 'utf8');
+        let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "app.yaml"), 'utf8');
         app = app.replace(/template_username/g, data.registry.user);
         app = app.replace(/template_slug/g, data.slug);
         app = app.replace(/template_registry/g, `${v2(data.registry.domain)}`);
         fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
 
         // devspace.yaml
-        let devspace = fs.readFileSync(path.join(__dirname, "../assets/templates/app/devspace.yaml"), 'utf8');
+        let devspace = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "devspace.yaml"), 'utf8');
         devspace = devspace.replace(/template_username/g, data.registry.user);
         devspace = devspace.replace(/template_password/g, data.registry.pass);
         devspace = devspace.replace(/template_url_registry/g, `${https(v2(data.registry.domain))}`);
@@ -467,45 +473,108 @@ export class AppCreate {
         devspace = devspace.replace(/template_slug/g, data.slug);
         fs.writeFileSync(path.join(data.path, 'devspace.yaml'), devspace);
 
-        // endpoints.yaml
+        // publish endpoints to DNS
+        // this.endpoints = new Endpoints(global);
+        // this.endpoints.createEndpoints();
+
+        // copy custom app files
+        const templateFolder = path.join(__dirname, "..", "assets", "templates", "apps", this.app.image, this.app.id);
+        const filesToExclude = ["Dockerfile", "manifest.json"];
+        if (fs.existsSync(templateFolder)) {
+
+            const files = fs.readdirSync(templateFolder);
+            files.forEach(file => {
+
+                log('Copying file:', file);
+
+                if (!filesToExclude.includes(file)) {
+                    const sourcePath = path.join(templateFolder, file);
+                    const targetPath = path.join(data.path, file);
+
+                    if (fs.lstatSync(sourcePath).isDirectory()) {
+                        const copyFolderRecursiveSync = (source, target) => {
+                            if (!fs.existsSync(target)) {
+                                fs.mkdirSync(target);
+                            }
+
+                            const items = fs.readdirSync(source);
+                            items.forEach(item => {
+                                const curSource = path.join(source, item);
+                                const curTarget = path.join(target, item);
+                                if (fs.lstatSync(curSource).isDirectory()) {
+                                    copyFolderRecursiveSync(curSource, curTarget);
+                                } else {
+                                    fs.copyFileSync(curSource, curTarget);
+                                }
+                            });
+                        };
+
+                        copyFolderRecursiveSync(sourcePath, targetPath);
+                    } else {
+                        fs.copyFileSync(sourcePath, targetPath);
+                    }
+                }
+            });
+        } else {
+            console.log(`Template folder not found at ${templateFolder}`);
+        }
+
+        // endpoints.yaml copy if not exists
+        let endpointsPath = path.join(data.path, 'endpoints.yaml');
+        if (!fs.existsSync(endpointsPath)) {
+
+            let endpoints = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "endpoints.yaml"), 'utf8');
+            fs.writeFileSync(endpointsPath, endpoints);
+        }
+
+        // update endpoints.yaml
+        let endpoints = fs.readFileSync(endpointsPath, 'utf8');
         let template_endpoint = data.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
-        let endpoints = fs.readFileSync(path.join(__dirname, "../assets/templates/app/endpoints.yaml"), 'utf8');
         endpoints = endpoints.replace(/template_namespace/g, data.slug);
         endpoints = endpoints.replace(/template_slug/g, data.slug);
         endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
-        fs.writeFileSync(path.join(data.path, 'endpoints.yaml'), endpoints);
+        fs.writeFileSync(endpointsPath, endpoints);
 
         // .gitignore
-        let gitignore = fs.readFileSync(path.join(__dirname, "../assets/templates/app/.gitignore"), 'utf8');
+        let gitignore = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", ".gitignore"), 'utf8');
         fs.writeFileSync(path.join(data.path, '.gitignore'), gitignore);
 
-        // Dockerfile
-        fs.writeFileSync(path.join(data.path, 'Dockerfile'), data.app.dockerfile);
+        // Dockerfile TODO multi file support
+        data.dockerfiles.forEach(dockerfile => {
+
+            log('Creating Dockerfile:', dockerfile.name);
+            let dockerfilePath = path.join(data.path, 'Dockerfile');
+            fs.writeFileSync(dockerfilePath, dockerfile.content);
+        });
+
+        // fs.writeFileSync(path.join(data.path, 'Dockerfile'), data.app.dockerfile);
+
+        // return;
 
         // _
-        const sourceDir = path.join(__dirname, '../assets/templates/app/_');
-        const targetDir = path.join(data.path, '_');
+        // const sourceDir = path.join(__dirname, "..", "assets", "templates", "app", "_");
+        // const targetDir = path.join(data.path, '_');
 
-        const copyFolderRecursiveSync = (source, target) => {
-            if (!fs.existsSync(target)) {
-                fs.mkdirSync(target);
-            }
+        // const copyFolderRecursiveSync = (source, target) => {
+        //     if (!fs.existsSync(target)) {
+        //         fs.mkdirSync(target);
+        //     }
 
-            if (fs.lstatSync(source).isDirectory()) {
-                const files = fs.readdirSync(source);
-                files.forEach(file => {
-                    const curSource = path.join(source, file);
-                    const curTarget = path.join(target, file);
-                    if (fs.lstatSync(curSource).isDirectory()) {
-                        copyFolderRecursiveSync(curSource, curTarget);
-                    } else {
-                        fs.copyFileSync(curSource, curTarget);
-                    }
-                });
-            }
-        };
+        //     if (fs.lstatSync(source).isDirectory()) {
+        //         const files = fs.readdirSync(source);
+        //         files.forEach(file => {
+        //             const curSource = path.join(source, file);
+        //             const curTarget = path.join(target, file);
+        //             if (fs.lstatSync(curSource).isDirectory()) {
+        //                 copyFolderRecursiveSync(curSource, curTarget);
+        //             } else {
+        //                 fs.copyFileSync(curSource, curTarget);
+        //             }
+        //         });
+        //     }
+        // };
 
-        copyFolderRecursiveSync(sourceDir, targetDir);
+        // copyFolderRecursiveSync(sourceDir, targetDir);
 
         hideLoader();
 

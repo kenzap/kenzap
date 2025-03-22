@@ -1,0 +1,7 @@
+{
+  "name": "Redis with Authentication Enabled",
+  "hint": "Change requirepass my_secure_password to set a password in redis.conf",
+  "slug": "redis",
+  "version": "1.0.0",
+  "license": "LGPL-3.0-or-later"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Alpine-Based PHP-FPM with Nginx",
+  "slug": "php-alpine-nginx",
+  "version": "1.0.0",
+  "license": "LGPL-3.0-or-later"
+}

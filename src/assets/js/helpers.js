@@ -25,7 +25,7 @@ export function API() {
  */
 export function log(...args) {
     if (process.env.NODE_ENV === 'development') {
-        console.log(...args);
+        // console.log(...args);
     }
 
     // TODO: add logging to file

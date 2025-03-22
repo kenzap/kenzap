@@ -1,7 +1,7 @@
 
 import global from "./global.js"
 import { clipboard } from 'electron'
-import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, API, log } from './helpers.js'
+import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, saveKenzapSettings, API, log } from './helpers.js'
 import yaml from 'js-yaml';
 import fs from "fs"
 import { run_script } from './dev-tools.js'
@@ -456,9 +456,9 @@ export class Endpoints {
 
         console.log("save endpoints");
 
-        // this.createEndpoints();
+        this.createEndpoints();
 
-        // log(this.endpoints)
+        log("createEndpoints", this.endpoints)
 
         let cache = getSetting(this.app.id);
 

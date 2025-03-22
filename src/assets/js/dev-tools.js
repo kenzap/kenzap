@@ -97,7 +97,7 @@ export function getKubectlPath() {
         try {
             if (fs.existsSync(path)) {
                 kubectlPath = path;
-                log('Found kubectl at:', kubectlPath);
+                // log('Found kubectl at:', kubectlPath);
                 break;
             }
         } catch (error) {
@@ -134,7 +134,7 @@ export function getDevspacePath() {
         try {
             if (fs.existsSync(path)) {
                 devspacePath = path;
-                log('Found devspace at:', devspacePath);
+                // log('Found devspace at:', devspacePath);
                 break;
             }
         } catch (error) {

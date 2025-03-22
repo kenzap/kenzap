@@ -1,0 +1,45 @@
+
+.app-picker-list{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Adjust column size */
+  gap: 20px; /* Space between items */
+  width: 100%; /* Ensure it spans the container */
+  justify-content: center; /* Center the grid items */
+  align-items: center; /* Align items vertically */
+}
+
+.app-icon-container{
+  width: 100px;
+  height: 100px;
+}
+
+.app-icon{
+  width: 100px;
+  height: 100px;
+  cursor: pointer; 
+  /* background: linear-gradient(135deg, #f0f0f0, #e0e0e0);  */
+  background: #ffffff;
+  border-radius: 20px; 
+  padding: 10px; 
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.24s ease;
+}
+
+.app-icon:hover{
+  transform: scale(1.05);
+}
+
+.app-icon img{
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+.app-name{
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}

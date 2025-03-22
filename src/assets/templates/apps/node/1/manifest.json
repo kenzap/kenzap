@@ -1,0 +1,7 @@
+{
+  "name": "Basic Node.js with Express",
+  "hint": "This is a basic Node.js app with Express. It listens on port 3000.",
+  "slug": "redis",
+  "version": "1.0.0",
+  "license": "LGPL-3.0-or-later"
+}

@@ -2,7 +2,7 @@
 import global from "./global.js"
 import { __html, attr, html, getSetting, cacheSettings, log } from './helpers.js'
 import yaml from 'js-yaml';
-import { run_script, getKubectlPath, getDevspacePath } from './dev-tools.js'
+import { run_script, getKubectlPath } from './dev-tools.js'
 import { getAppKubeconfig } from './app-status-helpers.js'
 import { getAppList } from './app-list-helpers.js'
 import child_process from "child_process"

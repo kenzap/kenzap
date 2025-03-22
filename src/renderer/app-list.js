@@ -11,6 +11,7 @@ import { getAppList, getAppIcon } from '../assets/js/app-list-helpers.js'
 import { AppProjects } from '../assets/js/app-projects.js'
 import { AppStatus } from '../assets/js/app-status.js'
 import { AppCreate } from './app-create.js'
+import { AppPicker } from '../assets/js/app-picker.js'
 import { Footer } from '../assets/js/app-footer.js'
 import { Settings } from './app-settings.js'
 import { ClusterList } from './cluster-list.js'
@@ -125,7 +126,7 @@ export class AppList {
                     <nav class="bc" aria-label="breadcrumb"></nav>
                     <div class="d-flex align-items-center">
                         <a style="margin-right:16px;" class="preview-link nounderline d-none cluster-list" target="_blank" href="#">${__html('Clusters')}<i class="mdi mdi-monitor"></i></a>
-                        <button class="btn btn-primary d-flex align-items-center mt-md-0 mt-2 app-create" type="button">
+                        <button class="btn btn-primary d-flex align-items-center mt-md-0 mt-2 app-create" type="button" data-bs-toggle="modal" data-bs-target=".modal">
                             <span class="d-flex" role="status" aria-hidden="true">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2" viewBox="0 0 16 16">
                                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
@@ -362,7 +363,9 @@ export class AppList {
 
             e.preventDefault();
 
-            new AppCreate();
+            new AppPicker();
+
+            // new AppCreate();
         });
 
         // cluster list

@@ -29,8 +29,11 @@ export class Home {
             { title: __html("Apps"), slug: "#apps", description: __html("Run any app as a microservice among your clusters."), links: [{ link: "#apps", text: "Apps" }], icon: "bi bi-monitor", value: 0, color: "bg-success", svg: '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32" style="width: 48px;" fill="currentColor" class="bi bi-ui-radios-grid me-3 mr-md-0 mr-lg-4 text-primary" viewBox="0 0 16 16"><path d="M3.5 15a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5m9-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5m0 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5M16 3.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m-9 9a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m5.5 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7m-9-11a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m0 2a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7"/></svg>' },
         ]
 
+        // for faster AppList page debugging
+        new AppList(global);
+
         // load this page
-        this.init();
+        // this.init();
     }
 
     init() {
