@@ -163,7 +163,7 @@ export class AppList {
                                 </div>
                                 <div class="row app-cont">
                                     <div class="col-sm-12">
-                                        <div class="table-responsive">
+                                        <div class="table-responsive-">
                                             <table class="table table-hover table-borderless align-middle table-striped- table-p-list mb-0 " style="min-width: 800px;">
                                                 <thead class="d-none">
                                                     <tr>
@@ -213,7 +213,13 @@ export class AppList {
                 }
 
                 // get icon
-                let icon = `<img src="${loading}" data-srcset="${loading}" class="img-fluid rounded" alt="App placeholder" srcset="${loading}">`;
+                let icon = `
+                    <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
+                        <div class="app-icon" >
+                            <img src="${loading}" alt="loader" class="img-fluid rounded d-none" style="width: 64px; height: 64px; border-radius: 15px;">
+                        </div>
+                    </div>
+                `;
 
                 if (app.app) if (app.app.logo) getAppIcon(app);
 
@@ -221,7 +227,7 @@ export class AppList {
                                                             <tr>
                                                                 <td style="width:46px;">   
                                                                     <div class="edge-status ${attr(global.state.dev[app.id].edgeStatus)}" data-id="${attr(app.id)}"></div>
-                                                                    <div class="timgc app-settings" data-id="${attr(app.id)}">
+                                                                    <div class="timgc app-settings icon-sm" data-id="${attr(app.id)}">
                                                                         <a href="#" class="align-items-center justify-content-between">
                                                                         ${icon}
                                                                         </a>

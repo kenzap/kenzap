@@ -54,6 +54,18 @@ function createMainWindow() {
   return window
 }
 
+// cors issue
+// app.on('web-contents-created', (_, contents) => {
+//   contents.session.webRequest.onHeadersReceived((details, callback) => {
+//     callback({
+//       responseHeaders: {
+//         ...details.responseHeaders,
+//         'Access-Control-Allow-Origin': ['*'],
+//       },
+//     });
+//   });
+// });
+
 // quit application when all windows are closed
 app.on('window-all-closed', () => {
   // on macOS it is common for applications to stay open until the user explicitly quits

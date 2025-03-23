@@ -1,6 +1,6 @@
 'use strict';
 
-import { __html, getDefaultAppPath, getSetting, log } from './helpers.js'
+import { __html, attr, getDefaultAppPath, getSetting, log } from './helpers.js'
 import fs from 'fs';
 import path from 'path';
 import simpleIcons from '../libs/simple-icons.json';
@@ -41,6 +41,42 @@ export function getAppList() {
  * @returns {string} The icon for the specified application.
  */
 export function getAppIcon(app) {
+
+    let conversions = { "httpd": "apache", "node": "nodejs" };
+    let slug = conversions[app.app.slug] || app.app.slug;
+    let url = `https://kenzap.cloud/static/apps/${slug}.svg?lastmod=3`;
+
+    fetch(url, {
+        //  method: 'HEAD',
+    })
+        .then(response => {
+            if (response.ok) {
+
+                document.querySelector(".timgc[data-id='" + app.id + "']").innerHTML = `
+                <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
+                    <div class="app-icon" data-id="${attr(app.image)}" >
+                        <img src="${url}" alt="${app.app.name}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">
+                    </div>
+                </div>
+                `;
+
+                // document.querySelector(".timgc[data-id='" + app.id + "']").innerHTML = `<img src="${url}" alt="${app.app.name}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">`;
+            } else {
+                console.warn(`Icon not found at ${url}`);
+            }
+        })
+        .catch(error => {
+            console.error(`Error fetching icon from ${url}:`, error);
+        });
+}
+
+/**
+ * Retrieves the icon for the specified application.
+ *  
+ * @param {string} app - The application object.
+ * @returns {string} The icon for the specified application.
+ */
+export function getAppIconSvg(app) {
 
     let conversions = { "httpd": "apache", "node": "nodedotjs" };
     let slug = conversions[app.app.slug] || app.app.slug;

@@ -74,9 +74,7 @@ div.toast-cont{
 }
 
 .timgc {
-  overflow: hidden;
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
   min-width: 42px;
   min-height: 42px;

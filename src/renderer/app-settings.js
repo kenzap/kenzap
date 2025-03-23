@@ -173,18 +173,20 @@ export class Settings {
 
                                     <div class="d-flex ">
                                         <div class="edge-status ${attr(global.state.dev[this.app.id].edgeStatus)}" data-id="${attr(this.app.id)}"></div>
-                                        <div class="timgc app-settings" data-id="${attr(this.app.id)}">
-                                            <a href="#">
-                                            ${icon}
-                                            </a>
-                                        </div>
-                                        <div class="ms-3">
-                                            <div>
-                                                <div class="d-flex align-items-center justify-content-start">
-                                                    <h4 class="card-title mb-0 me-3 text-accent">${__html('%1$', this.app.title)}</h4>
-                                                    <div><div class="badge dev-badge bg-danger fw-light po card-title mb-0 ${global.state.dev[this.app.id].status == 'sync' ? "" : "d-none"}" data-id="${attr(this.app.id)}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> ${__html('Syncing')}</div></div></div>
+                                        <div class="d-flex align-items-center justify-content-start">
+                                            <div class="timgc app-settings icon-md" data-id="${attr(this.app.id)}">
+                                                <a href="#">
+                                                ${icon}
+                                                </a>
+                                            </div>
+                                            <div class="ms-3">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-start">
+                                                        <h4 class="card-title mb-0 me-3 text-accent">${__html('%1$', this.app.title)}</h4>
+                                                        <div><div class="badge dev-badge bg-danger fw-light po card-title mb-0 ${global.state.dev[this.app.id].status == 'sync' ? "" : "d-none"}" data-id="${attr(this.app.id)}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> ${__html('Syncing')}</div></div></div>
+                                                    </div>
+                                                    <p class="form-text mt-0 mb-0">${__html('This app operates in <a href="#">%1$</a> namespace.', this.app.slug)}</div>
                                                 </div>
-                                                <p class="form-text mt-0 mb-0">${__html('This app operates in <a href="#">%1$</a> namespace.', this.app.slug)}</div>
                                             </div>
                                         </div>
                                     </div>

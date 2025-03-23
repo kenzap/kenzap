@@ -13,7 +13,7 @@
   height: 100px;
 }
 
-.app-icon{
+.app-icon-container .app-icon{
   width: 100px;
   height: 100px;
   cursor: pointer; 
@@ -28,17 +28,42 @@
   transition: all 0.24s ease;
 }
 
-.app-icon:hover{
-  transform: scale(1.05);
-}
-
-.app-icon img{
-  width: 60px;
-  height: 60px;
+.app-icon-container .app-icon img{
   object-fit: contain;
 }
 
-.app-name{
+.icon-sm.timgc,
+.icon-sm .app-icon-container,
+.icon-sm .app-icon-container .app-icon,
+.icon-sm .app-icon-container .app-settings.timgc{
+  width: 56px;
+  height: 56px; 
+}
+
+.icon-md.timgc,
+.icon-md .app-icon-container,
+.icon-md .app-icon-container .app-icon,
+.icon-md .app-icon-container .app-settings.timgc{
+  width: 68px;
+  height: 68px; 
+}
+
+.icon-md .app-icon-container .app-icon,
+.icon-sm .app-icon-container .app-icon{
+  border-radius: 12px; 
+}
+
+.app-icon-container .app-icon:hover{
+  transform: scale(1.05);
+}
+
+/* .app-icon-container .app-icon img{
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+} */
+
+.app-icon-container .app-name{
   font-size: 0.9rem;
   font-weight: 500;
   color: #333;
