@@ -221,7 +221,7 @@ export class AppList {
                     </div>
                 `;
 
-                if (app.app) if (app.app.logo) getAppIcon(app);
+                if (app.app) getAppIcon(app);
 
                 return `
                                                             <tr>

@@ -1,36 +1,34 @@
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: template_slug-ingress
+  name: template_namespace-ingress
   namespace: template_namespace
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    ingress.kubernetes.io/force-ssl-redirect: "false"
-    kubernetes.io/ingress.class: "nginx"    
-    cert-manager.io/cluster-issuer: "letsencrypt"
+    ingress.kubernetes.io/force-ssl-redirect: 'false'
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt
     nginx.ingress.kubernetes.io/proxy-body-size: 20m
-    nginx.org/proxy-connect-timeout: "45s"
-    nginx.org/proxy-read-timeout: "45s"
-    nginx.org/client-max-body-size: "20m"
+    nginx.org/proxy-connect-timeout: 45s
+    nginx.org/proxy-read-timeout: 45s
+    nginx.org/client-max-body-size: 20m
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - template_endpoint
-    secretName: letsencrypt-prod
+    - hosts:
+        - template_endpoint
+      secretName: letsencrypt-prod
   rules:
-  - host: template_endpoint
-    http:
-      paths:
-      - path: /
-        pathType: Prefix        
-        backend:
-          service:
-            name: app
-            port: 
-              number: 80
-
+    - host: template_endpoint
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app
+                port:
+                  number: 80
 ---
 apiVersion: v1
 kind: Service
@@ -40,7 +38,21 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app: template_slug
+    app: template_namespace-wordpress
   ports:
     - port: 80
+      name: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: template_namespace
+spec:
+  type: ClusterIP
+  selector:
+    app: template_namespace-db
+  ports:
+    - port: 3306
       name: http

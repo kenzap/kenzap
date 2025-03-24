@@ -18,6 +18,8 @@ export class AppClusterPicker {
 
     view() {
 
+        if (!this.app.clusters.length) this.app.clusters = [this.clusters[0].id];
+
         return `
             <div class="col-sm-7 pt-3">
                 <h5 class="card-title">${__html('Clusters')}</h5>

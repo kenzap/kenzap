@@ -116,7 +116,7 @@ export class AppRegistry {
 
             // console.log("removing tag", tag);
 
-            deleteRegistryTag(this.global.state.app, tag);
+            // deleteRegistryTag(this.global.state.app, tag);
         }
     }
 }

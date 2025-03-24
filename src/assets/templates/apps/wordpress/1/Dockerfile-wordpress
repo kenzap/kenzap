@@ -1,0 +1,20 @@
+# Use official WordPress image as base
+FROM wordpress:latest
+
+# Set environment variables (can be overridden at runtime)
+ENV WORDPRESS_DB_HOST=db.template_namespace
+ENV WORDPRESS_DB_NAME=template_wordpress_db_name
+ENV WORDPRESS_DB_USER=template_wordpress_db_user
+ENV WORDPRESS_DB_PASSWORD=template_wordpress_db_pass
+ENV WORDPRESS_DEBUG=true
+ENV WORDPRESS_HOME=template_https_endpoint
+ENV WORDPRESS_SITEURL=template_https_endpoint
+
+# Copy custom WordPress configuration if needed
+COPY wp-config.php /var/www/html/wp-config.php
+
+# Expose port 80 for Apache
+EXPOSE 80
+
+# Start Apache server
+CMD ["apache2-foreground"]

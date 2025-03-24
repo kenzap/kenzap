@@ -17,10 +17,14 @@ export class Endpoints {
         this.usedPorts = [];
 
         if (!this.app) this.app = { env: [] };
-        if (!this.endpoints) this.endpoints = this.app.services;
+        // if (!this.endpoints) this.endpoints = [];
+        // if (!this.services) this.services = [];
         if (!this.annotations) this.annotations = this.app.annotations;
 
-        this.endpointsOriginal = this.endpoints;
+        // this.endpointsOriginal = this.endpoints;
+        // this.servicesOriginal = this.services;
+
+        log("endpoints", this.services);
     }
 
     view() {
@@ -45,8 +49,8 @@ export class Endpoints {
                 </div>
                 <p class="form-text">${__html('A list of public endpoints and services.')}</p>
                 <div class="mb-3 row">
-                    <label for="registryDomain" class="col-sm-3 col-form-label">${__html('Active')}</label>
-                    <div class="col-sm-9">
+                    <label for="registryDomain" class="col-sm-2 col-form-label">${__html('Active')}</label>
+                    <div class="col-sm-10">
                         <div class="table-responsive">
                             <table class="table table-hover table-borderless align-middle table-striped- table-p-list mb-0" style="min-width:300px;">
                                 <thead>
@@ -69,27 +73,29 @@ export class Endpoints {
 
     render() {
 
+        log("render endpoints");
+
         let cache = getSetting(this.app.id);
 
         // render newly added endpoints (after ui is rendered)
-        if (typeof this.endpoints !== "undefined") {
+        if (typeof this.services !== "undefined") {
 
             // no records found
-            if (!this.endpoints.length) { document.querySelector('.endpoint-list').innerHTML = `<tr><td colspan="2">${__html("No endpoints created.")}</td></tr>`; }
+            if (!this.services.length) { document.querySelector('.endpoint-list').innerHTML = `<tr><td colspan="2">${__html("No endpoints created.")}</td></tr>`; }
 
-            document.querySelector(this.selector + ' .endpoint-list').innerHTML = this.endpoints.map((endpoint, i) => {
+            document.querySelector(this.selector + ' .endpoint-list').innerHTML = this.services.map((service, i) => {
 
-                this.usedPorts.push(endpoint.port);
+                this.usedPorts.push(service.port);
 
-                return this.struct(i, endpoint);
+                return this.struct(i, service);
 
             }).join('');
         }
 
         // render from YAML (first time loading)
-        if (typeof this.endpoints === "undefined") {
+        if (typeof this.services === "undefined") {
 
-            // console.log("render endpoints from YAML");
+            console.log("render endpoints from YAML");
 
             // read endpoints
             if (cache.path) if (fs.existsSync(path.join(cache.path, 'endpoints.yaml'))) {
@@ -97,10 +103,13 @@ export class Endpoints {
                 try {
 
                     this.endpoints = [];
+                    this.services = [];
 
                     const endpoints = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'endpoints.yaml'), 'utf8'));
 
                     global.state.app.endpointsFile = endpoints;
+
+                    log("render endpoints", endpoints);
 
                     // no records found
                     if (!endpoints.length) { document.querySelector('.endpoint-list').innerHTML = `<tr><td colspan="2">${__html("No endpoints created.")}</td></tr>`; }
@@ -111,20 +120,51 @@ export class Endpoints {
 
                         if (endpoint.kind == "Ingress") {
 
-                            document.querySelector(this.selector + ' .endpoint-list').innerHTML = endpoint.spec.rules.map((rule, i) => {
+                            endpoint.spec.rules.map((rule, i) => {
 
                                 this.usedPorts.push(rule.http.paths[0].backend.service.port.number);
 
-                                let endpoint = { "host": rule.host, "port": rule.http.paths[0].backend.service.port.number, "name": rule.http.paths[0].backend.service.name, "slug": global.state.app.slug, "private": rule.http.paths[0].backend.service.name + "." + global.state.app.slug, "active_public": 1, "active_private": 1 };
+                                let e = { "host": rule.host, "port": rule.http.paths[0].backend.service.port.number, "name": rule.http.paths[0].backend.service.name, "slug": global.state.app.slug, "private": rule.http.paths[0].backend.service.name + "." + endpoint.metadata.namespace, "active_public": 1, "active_private": 1 };
 
-                                this.endpoints.push(endpoint);
+                                this.endpoints.push(e);
+                            });
+                        }
 
-                                return this.struct(i, endpoint);
+                        if (endpoint.kind == "Service") {
 
-                            }).join('');
+                            let service = { "host": "", "port": endpoint.spec.ports[0].port, "name": endpoint.metadata.name, "slug": global.state.app.slug, "private": endpoint.metadata.name + "." + endpoint.metadata.namespace, "selector_app": endpoint.spec.selector.app, "active_public": 0, "active_private": 1 };
+
+                            this.services.push(service);
                         }
                     });
 
+                    // map endpoints and services
+                    this.services.map((service, j) => {
+                        this.endpoints.map((endpoint, i) => {
+                            if (endpoint.name == service.name) {
+
+                                this.services[j].host = endpoint.host;
+                                this.services[j].active_public = 1;
+                            }
+                        });
+                    });
+
+                    // render services
+                    document.querySelector(this.selector + ' .endpoint-list').innerHTML = this.services.map((service, i) => {
+
+                        // this.usedPorts.push(rule.http.paths[0].backend.service.port.number);
+
+                        let s = { "host": service.host ? service.host : "", "port": service.port, "name": service.name, "slug": service.slug, "private": service.private, "active_public": service.host ? 1 : 0, "active_private": 1 };
+
+                        return this.struct(i, s);
+
+                    }).join('');
+
+
+                    log("services", this.services);
+                    log("endpoints", this.endpoints);
+
+                    this.servicesOriginal = JSON.parse(JSON.stringify(this.services));
                     this.endpointsOriginal = JSON.parse(JSON.stringify(this.endpoints));
 
                 } catch (err) {
@@ -136,6 +176,8 @@ export class Endpoints {
     }
 
     struct(i, endpoint) {
+
+        log("struct endpoint", endpoint);
 
         return `
             <tr>
@@ -229,11 +271,11 @@ export class Endpoints {
 
                 let index = parseInt(e.currentTarget.dataset.i);
 
-                host = this.endpoints[index].host;
-                name = this.endpoints[index].name;
-                portNew = this.endpoints[index].port;
-                active_public = this.endpoints[index].active_public;
-                active_private = this.endpoints[index].active_private;
+                host = this.services[index].host;
+                name = this.services[index].name;
+                portNew = this.services[index].port;
+                active_public = this.services[index].active_public;
+                active_private = this.services[index].active_private;
 
             } else {
 
@@ -337,18 +379,18 @@ export class Endpoints {
 
                     let index = parseInt(e.currentTarget.dataset.i);
 
-                    this.endpoints[index].host = host;
-                    this.endpoints[index].name = name;
-                    this.endpoints[index].port = port;
-                    this.endpoints[index].active_public = active_public;
-                    this.endpoints[index].active_private = active_private;
+                    this.services[index].host = host;
+                    this.services[index].name = name;
+                    this.services[index].port = port;
+                    this.services[index].active_public = active_public;
+                    this.services[index].active_private = active_private;
 
                     toast(__html("Endpoint updated"));
                 } else {
 
                     let endpoint = { "host": host, "port": port, "name": name, "slug": this.app.slug, "private": name + "." + this.app.slug, "active_public": active_public, "active_private": active_private };
 
-                    this.endpoints.push(endpoint);
+                    this.services.push(endpoint);
 
                     toast(__html("Endpoint created"));
                 }
@@ -390,7 +432,7 @@ export class Endpoints {
 
             let index = parseInt(e.currentTarget.dataset.i);
 
-            this.endpoints.splice(index, 1);
+            this.services.splice(index, 1);
 
             this.render();
 
@@ -409,7 +451,7 @@ export class Endpoints {
 
     get() {
 
-        return this.endpoints;
+        return this.services;
     }
 
     getAnnotations(cache) {
@@ -452,13 +494,163 @@ export class Endpoints {
         return this.annotations;
     }
 
+    // save() {
+
+    //     console.log("save endpoints");
+
+    //     // this.createEndpoints();
+
+    //     log("createEndpoints", this.endpoints)
+
+    //     let cache = getSetting(this.app.id);
+
+    //     let annotations = this.getAnnotations(cache);
+
+    //     // skip save if can not read annotations
+    //     if (!annotations) return;
+
+    //     // log(this.app)
+
+    //     // skip save if no changes
+    //     // if (JSON.stringify(this.endpointsOriginal) === JSON.stringify(this.endpoints)) { log("no change"); return; }
+
+    //     this.createEndpoints();
+
+    //     // read endpoints
+    //     if (cache.path) if (fs.existsSync(path.join(cache.path, 'endpoints.yaml'))) {
+
+    //         try {
+
+    //             const endpoints = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'endpoints.yaml'), 'utf8'));
+
+    //             log("render endpoints", endpoints);
+
+    //             // no records found
+    //             if (!endpoints.length) { return; }
+
+    //             endpoints.forEach(endpoint => {
+
+    //                 this.annotations = endpoint.metadata.annotations;
+
+    //                 if (endpoint.kind == "Ingress") {
+
+    //                     endpoint.spec.rules.map((rule, i) => {
+
+    //                         this.usedPorts.push(rule.http.paths[0].backend.service.port.number);
+
+    //                         let e = { "host": rule.host, "port": rule.http.paths[0].backend.service.port.number, "name": rule.http.paths[0].backend.service.name, "slug": global.state.app.slug, "private": rule.http.paths[0].backend.service.name + "." + endpoint.metadata.namespace, "active_public": 1, "active_private": 1 };
+
+    //                         this.endpoints.push(e);
+    //                     });
+    //                 }
+
+    //                 if (endpoint.kind == "Service") {
+
+    //                     let service = { "host": "", "port": endpoint.spec.ports[0].port, "name": endpoint.metadata.name, "slug": global.state.app.slug, "private": endpoint.metadata.name + "." + endpoint.metadata.namespace, "active_public": 0, "active_private": 1 };
+
+    //                     this.services.push(service);
+    //                 }
+    //             });
+    //         } catch (err) {
+
+    //         }
+    //     }
+
+    //     // handle ingress
+    //     let ingress = {
+    //         apiVersion: "networking.k8s.io/v1",
+    //         kind: "Ingress",
+    //         metadata: {
+    //             name: this.app.slug + "-ingress",
+    //             namespace: this.app.slug,
+    //             annotations: annotations
+    //         },
+    //         spec: {
+    //             ingressClassName: "nginx",
+    //             tls: [{ hosts: [], secretName: "letsencrypt-prod" }],
+    //             rules: []
+    //         }
+    //     };
+
+    //     let services = [];
+
+    //     if (typeof this.endpoints === "undefined") return;
+
+    //     this.endpoints.forEach(endpoint => {
+
+    //         if (!endpoint.active_private) return;
+
+    //         // generate services
+    //         services.push({
+    //             apiVersion: "v1",
+    //             kind: "Service",
+    //             metadata: {
+    //                 name: endpoint.name,
+    //                 namespace: this.app.slug
+    //             },
+    //             spec: {
+    //                 type: "ClusterIP",
+    //                 selector: {
+    //                     app: this.app.slug
+    //                 },
+    //                 ports: [
+    //                     {
+    //                         port: parseInt(endpoint.port),
+    //                         name: "http"
+    //                     }
+    //                 ]
+    //             }
+    //         });
+
+    //         if (!endpoint.active_public) return;
+
+    //         // generate ingress hosts
+    //         ingress.spec.tls[0].hosts.push(endpoint.host);
+    //         ingress.spec.rules.push({
+    //             host: endpoint.host,
+    //             http: {
+    //                 paths: [
+    //                     {
+    //                         path: "/",
+    //                         pathType: "Prefix",
+    //                         backend: {
+    //                             service: {
+    //                                 name: endpoint.name,
+    //                                 port: {
+    //                                     number: parseInt(endpoint.port)
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+    //                 ]
+    //             }
+    //         });
+    //     });
+
+    //     if (ingress.spec.rules.length) services.unshift(ingress);
+
+    //     // no open hosts, delete ingress
+    //     if (!ingress.spec.rules.length) { this.app.clusters.forEach(cluster => { run_script('cd ' + cache.path + ' && kubectl delete ingress ' + this.app.slug + '-ingress --kubeconfig=kubeconfig-' + cluster + '.yaml', [], () => { }); }) }
+
+    //     // convert json to final endpoints.yaml file
+    //     let endpointFile = services.map(ef => { return yaml.dump(ef, {}); }).join("---\n");
+
+    //     // store to file
+    //     try { fs.writeFileSync(path.join(cache.path, 'endpoints.yaml'), endpointFile, 'utf-8'); } catch (e) { console.log(e); }
+
+    //     let cb = () => { }
+
+    //     // apply changes to cluster
+    //     this.app.clusters.forEach(cluster => { run_script('cd ' + cache.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster + '.yaml', [], cb); });
+    // }
+
     save() {
 
         console.log("save endpoints");
 
         this.createEndpoints();
 
-        log("createEndpoints", this.endpoints)
+        log("createEndpoints", this.services)
 
         let cache = getSetting(this.app.id);
 
@@ -470,7 +662,7 @@ export class Endpoints {
         // log(this.app)
 
         // skip save if no changes
-        if (JSON.stringify(this.endpointsOriginal) === JSON.stringify(this.endpoints)) { log("no change"); return; }
+        if (JSON.stringify(this.servicesOriginal) === JSON.stringify(this.services)) { log("no change"); return; }
 
         this.createEndpoints();
 
@@ -492,40 +684,40 @@ export class Endpoints {
 
         let services = [];
 
-        if (typeof this.endpoints === "undefined") return;
+        if (typeof this.services === "undefined") return;
 
-        this.endpoints.forEach(endpoint => {
+        this.services.forEach(service => {
 
-            if (!endpoint.active_private) return;
+            if (!service.active_private) return;
 
             // generate services
             services.push({
                 apiVersion: "v1",
                 kind: "Service",
                 metadata: {
-                    name: endpoint.name,
-                    namespace: this.app.slug
+                    name: service.name,
+                    namespace: service.slug
                 },
                 spec: {
                     type: "ClusterIP",
                     selector: {
-                        app: this.app.slug
+                        app: service.selector_app ? service.selector_app : this.app.slug + "-" + service.name
                     },
                     ports: [
                         {
-                            port: parseInt(endpoint.port),
+                            port: parseInt(service.port),
                             name: "http"
                         }
                     ]
                 }
             });
 
-            if (!endpoint.active_public) return;
+            if (!service.active_public) return;
 
             // generate ingress hosts
-            ingress.spec.tls[0].hosts.push(endpoint.host);
+            ingress.spec.tls[0].hosts.push(service.host);
             ingress.spec.rules.push({
-                host: endpoint.host,
+                host: service.host,
                 http: {
                     paths: [
                         {
@@ -533,9 +725,9 @@ export class Endpoints {
                             pathType: "Prefix",
                             backend: {
                                 service: {
-                                    name: endpoint.name,
+                                    name: service.name,
                                     port: {
-                                        number: parseInt(endpoint.port)
+                                        number: parseInt(service.port)
                                     }
                                 }
                             }
@@ -577,7 +769,7 @@ export class Endpoints {
 
         // let cluster = this.app.clusters[0];
 
-        this.endpoints.forEach(endpoint => {
+        this.services.forEach(endpoint => {
 
             let ips = [];
 
@@ -592,12 +784,12 @@ export class Endpoints {
         });
 
         log(settings.id);
-        log(this.endpoints);
+        log(this.services);
 
         // return;
 
         // get free registry https://api.kenzap-apps.app.kenzap.cloud/v2/?cmd=create_endpoints&kenzap_id=Y4uR3s&app_slug=app-39987
-        fetch(API() + "?cmd=create_endpoints&kenzap_id=" + settings.id + "&app_id=" + this.app.id + "&endpoints=" + JSON.stringify(this.endpoints), {
+        fetch(API() + "?cmd=create_endpoints&kenzap_id=" + settings.id + "&app_id=" + this.app.id + "&endpoints=" + JSON.stringify(this.services), {
             method: 'post',
             headers: {
                 'Accept': 'application/json',

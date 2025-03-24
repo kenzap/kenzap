@@ -2,6 +2,7 @@
 import global from "./global.js"
 import { __html, attr, onClick, getDefaultAppPath, toast, getToken, getKenzapSettings, saveKenzapSettings, onKeyUp, onChange, log } from './helpers.js'
 import { appList } from './app-picker-list.js'
+import { Actions } from './app-actions.js'
 import "../scss/app-picker.css"
 import { Settings } from '../../renderer/app-settings.js'
 import { AppCreate } from '../../renderer/app-create.js'
@@ -12,9 +13,13 @@ import 'ace-builds/src-noconflict/mode-javascript'
 import { on } from "events"
 import fs from "fs"
 import * as path from 'path';
+import slugify from 'slugify'
 
 /**
  * Class representing an App Picker dialog.
+ * 1. Select an app from the list of available apps.
+ * 2. Provide app title.
+ * 3. View the app's image template.
  */
 export class AppPicker {
 
@@ -22,17 +27,17 @@ export class AppPicker {
 
         this.apps = [];
 
+        this.settings = getKenzapSettings();
+
         this.init();
     }
 
     init() {
 
-        this.view();
-
-        this.listeners();
+        this.selectApp();
     }
 
-    view() {
+    selectApp() {
 
         // get modal html
         this.modal = document.querySelector(".modal");
@@ -41,8 +46,9 @@ export class AppPicker {
         document.querySelector(".modal-dialog").classList.add("modal-lg");
 
         // set product modal title
-        document.querySelector(".modal-title").innerHTML = __html("Add App");
+        document.querySelector(".modal-title").innerHTML = __html("Apps");
 
+        // set product modal body
         this.modal.querySelector(".modal-body").innerHTML = `
             <div class="form-cont">
                 <div class="form-group- mt-3">
@@ -88,10 +94,22 @@ export class AppPicker {
         this.modal.querySelector("#project-name").focus();
 
         // render HTML
-        this.table();
+        this.selectAppTable();
+
+        // next action listener
+        onClick(".app-icon-container", e => {
+
+            e.preventDefault();
+
+            let i = e.currentTarget.dataset.i;
+
+            this.app = appList[i];
+
+            this.provideTitle();
+        });
     }
 
-    table() {
+    selectAppTable() {
         this.modal.querySelector(".app-picker-list").innerHTML = appList.map((app, i) => {
             return `
                 <div class="app-icon-container text-center d-inline-block m-3" data-i="${i}">
@@ -99,38 +117,54 @@ export class AppPicker {
                         <img src="${attr(app.icon)}" alt="${attr(app.name)}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">
                     </div>
                     <div class="app-name mt-2" >${app.name}</div>
-                    <div class="d-none dropdown ${i == 0 ? "d-none" : ""}">
-                        <svg id="projectAction${i}" data-bs-toggle="dropdown" data-boundary="viewport" aria-expanded="false" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-three-dots-vertical dropdown-toggle po" viewBox="0 0 16 16">
-                            <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1-3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1-3 0z"></path>
-                        </svg>
-                        <ul class="dropdown-menu d-none" aria-labelledby="projectAction${i}" style="">
-                            <li class="d-none"><a class="dropdown-item po add-env-var" href="#" data-bs-toggle="modal" data-bs-target=".modal" data-action="edit" data-id="${i}" >${__html('Edit')}</a></li>
-                            <li class="d-none"><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item po project-remove form-text" href="#" data-type="remove" data-id="${attr(app.image)}" >${__html('Remove')}</a></li>
-                        </ul>
-                    </div>
                 </div>
             `;
         }).join('');
+    }
 
-        // onClick('.project-remove', e => {
+    provideTitle() {
 
-        //     this.apps = this.apps.filter(project => { return project.id != e.currentTarget.dataset.id });
+        document.querySelector(".modal-title").innerHTML = __html("App Name");
 
-        //     this.table();
-        // });
+        this.modal.querySelector(".modal-body").innerHTML = `
+            <div class="form-group my-5 py-5 text-center-">
+                <div class="m-auto" style="max-width: 500px;">
+                    <label for="app-title" class="form-label h5 d-none">${__html('App Name')}</label>
+                    <input id="app-title" type="text" class="form-control form-control-lg mx-auto" placeholder="${__html('Enter app name')}" value="${attr(this.title ? this.title : "")}" />
+                    <div class="invalid-feedback">${__html('Please provide a valid app name.')}</div>
+                </div>
+            </div>
+            `;
 
-        // onKeyUp('.project-name-row', e => {
+        this.modal.querySelector("#app-title").focus();
 
-        //     this.apps.forEach((project, i) => { if (project.id == e.currentTarget.dataset.id) { this.apps[i].project = e.currentTarget.innerHTML.trim() } });
-        // });
+        // footer buttons
+        document.querySelector(".modal-footer").innerHTML = `
+        <div class="btn-group" role="group" aria-label="Basic example">
+            <button id="btn-middle" type="button" class="btn btn-outline-dark app-picker-back" tabindex="-1">${__html("Back")}</button>
+            <button id="btn-primary" type="button" class="btn btn-outline-primary app-picker-next" tabindex="-1">${__html("Continue")}</button>
+        </div>
+        `;
 
-        // onChange('.project-name-row', e => {
+        // next action listener
+        onClick(".app-picker-next", e => {
 
-        //     this.apps.forEach((project, i) => { if (project.id == e.currentTarget.dataset.id) { this.apps[i].project = e.currentTarget.innerHTML.trim() } });
+            let title = document.querySelector("#app-title").value;
+            this.title = title;
+            this.namespace = slugify(title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g });
 
-        //     // this.table();
-        // });
+            if (title.length < 2 || this.namespace < 2) {
+                document.querySelector("#app-title").classList.add("is-invalid");
+                return;
+            }
+
+            this.viewImages();
+        });
+
+        // previous action listener
+        onClick(".app-picker-back", e => {
+            this.init();
+        });
     }
 
     loadImages() {
@@ -141,19 +175,23 @@ export class AppPicker {
             return fs.statSync(folderPath).isDirectory();
         });
 
-        log(folders);
+        // log(folders);
 
         this.apps = folders.map(folder => {
+
             const manifestPath = path.join(appsPath, folder, 'manifest.json');
             const dockerfiles = fs.readdirSync(path.join(appsPath, folder)).filter(file => file.toLowerCase().startsWith('dockerfile'));
 
-            log(dockerfiles);
+            // log(dockerfiles);
 
             let obj = { id: folder, dockerfiles: [] };
 
             if (fs.existsSync(manifestPath)) {
                 try {
                     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+                    this.actions = new Actions(manifest.actions, this.settings, this.title, this.namespace);
+
                     obj = { ...obj, ...manifest };
                 } catch (error) {
                     console.error(`Error reading manifest.json in folder ${folder}:`, error);
@@ -163,7 +201,7 @@ export class AppPicker {
             if (dockerfiles.length > 0) {
                 obj.dockerfiles = dockerfiles.map(dockerfile => {
                     const dockerfilePath = path.join(appsPath, folder, dockerfile);
-                    return { name: dockerfile, content: fs.readFileSync(dockerfilePath, 'utf8') };
+                    return { name: dockerfile, content: this.actions.apply("firstView", fs.readFileSync(dockerfilePath, 'utf8')) };
                 });
             }
 
@@ -171,16 +209,19 @@ export class AppPicker {
 
         }).filter(app => app !== null);
 
-        log(this.apps)
+        // log(this.apps)
     }
 
     viewImages() {
 
         this.loadImages();
 
-        log("viewImages");
+        document.querySelector(".modal-title").innerHTML = __html("Configurations");
 
         this.modal.querySelector(".modal-body").innerHTML = this.apps.map((app, i) => {
+
+            // log(app);
+
             return `
                 <div class="col-sm-12 pt-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -191,7 +232,7 @@ export class AppPicker {
                     ${app.dockerfiles.map(dockerfile => `
                     <div class="docker-editor mb-3">
                         <label for="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" class="form-label d-none">${__html(dockerfile.name)}</label>
-                        <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${attr(dockerfile.content)}</textarea>
+                        <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" data-id="${attr(app.id)}" data-i="${attr(i)}" data-name="${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${attr(dockerfile.content)}</textarea>
                     </div>
                     `).join('')}
                     <div class="clearfix"></div>
@@ -202,13 +243,13 @@ export class AppPicker {
         // footer buttons
         document.querySelector(".modal-footer").innerHTML = `
         <div class="btn-group-" role="group" aria-label="Basic example">
-            <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal app-picker-back" tabindex="-1">${__html("Back")}</button>
-            <button id="btn-primary " type="button" class="btn btn-outline-primary save-projects d-none" data-bs-dismiss="modal" tabindex="-1">${__html("Continue")}</button>
+            <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal app-title-back" tabindex="-1">${__html("Back")}</button>
+            <button id="btn-primary" type="button" class="btn btn-outline-primary save-projects d-none" data-bs-dismiss="modal" tabindex="-1">${__html("Continue")}</button>
         </div>
         `;
 
-        onClick(".app-picker-back", e => {
-            this.init();
+        onClick(".app-title-back", e => {
+            this.provideTitle();
         });
 
         onClick(".select-app-btn", e => {
@@ -217,12 +258,15 @@ export class AppPicker {
 
             let i = e.currentTarget.dataset.i;
 
+            this.apps[i].actions = this.actions;
             this.apps[i].image = this.app.image;
+            this.apps[i].title = this.title;
+            this.apps[i].namespace = this.namespace;
             this.apps[i].icon = this.app.icon;
 
-            log(this.apps[i]);
+            // log(this.apps[i]);
 
-            this.modal.querySelector(".btn-close").click();
+            document.querySelector(".btn-close").click();
 
             new AppCreate(this.apps[i]);
         });
@@ -243,43 +287,8 @@ export class AppPicker {
                 tabSize: 4
             });
 
-            const dockerfilePath = textarea.id.split('-').slice(1).join(path.sep);
-            const fullPath = path.join(__dirname, "..", "templates", "apps", this.app.image, dockerfilePath);
-
-            if (fs.existsSync(fullPath)) {
-                try {
-                    const content = fs.readFileSync(fullPath, 'utf8');
-                    editor.setValue(content);
-                    editor.clearSelection();
-                } catch (error) {
-                    console.error(`Error reading Dockerfile at ${fullPath}:`, error);
-                }
-            } else {
-                editor.setValue("");
-                editor.clearSelection();
-            }
-        });
-    }
-
-    listeners() {
-
-        onClick(".app-icon-container", e => {
-
-            e.preventDefault();
-
-            let i = e.currentTarget.dataset.i;
-
-            this.app = appList[i];
-
-            this.viewImages();
-
-            // this.modal.querySelector(".close-modal").click();
-
-            // new AppCreate({ "app": appList[i] });
-
-            // global.settings = new Settings(e.currentTarget.dataset.id);
-
-            // log(appList[i]);
+            editor.setValue(textarea.innerHTML);
+            editor.clearSelection();
         });
     }
 }

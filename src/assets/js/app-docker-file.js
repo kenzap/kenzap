@@ -1,4 +1,3 @@
-
 import global from "./global.js"
 import { __html, getDefaultAppPath } from './helpers.js'
 import "../scss/docker-apps.css"
@@ -12,22 +11,24 @@ import { log } from "console";
 export class DockerFile {
 
     constructor(global) {
-
         this.global = global;
-
         this.app = this.global.state.app;
-
         if (!this.app) this.app = { dtc: [], docker: "" };
+        this.dockerFiles = [];
+        this.dockerFileOriginals = {};
     }
 
     view() {
-
         return `
             <div class="col-sm-7 pt-3 mb-3">
-                <h5 class="card-title">${__html('Docker File')}</h5>
-                <p class="form-text">${__html('Edit docker file below.')}</p>
-                <div class="docker-editor">   
-                    <textarea id="appDocker" type="text" value="" autocomplete="off"  rows="10" class="form-control monospace"></textarea>
+                <h5 class="card-title">${__html('Docker Files')}</h5>
+                <p class="form-text">${__html('Edit Docker files below.')}</p>
+                <div id="docker-files-container">
+                    ${this.dockerFiles.map(file => `
+                        <div class="docker-editor mb-3">
+                            <textarea id="${file}" type="text" value="" autocomplete="off" rows="10" class="form-control monospace"></textarea>
+                        </div>
+                    `).join('')}
                 </div>
                 <div class="clearfix"></div>
             </div>
@@ -36,105 +37,89 @@ export class DockerFile {
 
     render() {
 
-        let path = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep + 'Dockerfile';
+        this.dockerFiles.forEach(file => {
+            const filePath = this.basePath + file;
 
-        // console.log("render Dockerfile path" + path);
+            global.state.editors = global.state.editors || {};
+            global.state.editors[file] = ace.edit(file, {
+                maxLines: 20,
+                minLines: 10,
+                fontSize: 14,
+                theme: 'ace/theme/terminal',
+                mode: 'ace/mode/sh',
+                tabSize: 4
+            });
 
-        global.state.editor = ace.edit("appDocker", {
-            maxLines: 20,
-            minLines: 10,
-            fontSize: 14,
-            theme: 'ace/theme/terminal',
-            mode: 'ace/mode/sh',
-            tabSize: 4
-        });
+            global.state.editors[file].setValue("");
+            global.state.editors[file].clearSelection();
 
-        global.state.editor.setValue("");
-        global.state.editor.clearSelection();
-
-        // read docker file
-        if (fs.existsSync(path)) {
-
-            try {
-
-                // available settings
-                // ace.config.set('basePath', '/node_modules/ace-builds/src-min-noconflict');
-                // ace.config.set('basePath', 'http://localhost:9080/js/ace/');
-                // global.state.editor.setValue("test", null, 2);
-                // global.state.editor.getSession().setMode("json");
-                // global.state.editor.setTheme("ace/theme/monokai");
-                global.state.editor.setValue(fs.readFileSync(path, 'utf8'));
-                global.state.editor.clearSelection();
-
-            } catch (e) {
-
+            if (fs.existsSync(filePath)) {
+                try {
+                    global.state.editors[file].setValue(fs.readFileSync(filePath, 'utf8'));
+                    global.state.editors[file].clearSelection();
+                } catch (e) {
+                    console.error(e);
+                }
             }
-        }
 
-        this.dockerFileOriginal = global.state.editor.getValue();
-    }
-
-    listeners() {
-
+            this.dockerFileOriginals[file] = global.state.editors[file].getValue();
+        });
     }
 
     save() {
+        const basePath = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep;
 
-        if (this.dockerFileOriginal == global.state.editor.getValue()) { log("Docker file not changed"); return; }
+        this.dockerFiles.forEach(file => {
+            const editor = global.state.editors[file];
+            if (this.dockerFileOriginals[file] === editor.getValue()) {
+                log(`${file} not changed`);
+                return;
+            }
 
-        log("Saving docker file")
+            log(`Saving Dockerfile ${file}`);
 
-        let path = getDefaultAppPath() + require('path').sep + this.app.slug;
-
-        try { fs.writeFileSync(path + '/Dockerfile', global.state.editor.getValue(), 'utf-8'); } catch (e) { console.log(e); }
-    }
-
-    get() {
-
-        return global.state.editor.getValue();
+            try {
+                fs.writeFileSync(basePath + file, editor.getValue(), 'utf-8');
+            } catch (e) {
+                console.error(e);
+            }
+        });
     }
 
     init() {
 
+        this.basePath = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep;
+        this.dockerFiles = fs.readdirSync(this.basePath).filter(file => file.startsWith('Dockerfile'));
+
+
         document.querySelector('docker-file').innerHTML = this.view();
-
         this.render();
+        // this.listeners();
 
-        this.listeners();
 
-        // check docker file for changes
         this.interval = setInterval(() => {
+            this.dockerFiles.forEach(file => {
+                const filePath = this.basePath + file;
 
-            let path = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep + 'Dockerfile';
+                if (fs.existsSync(filePath)) {
+                    try {
+                        const dockerFileContent = fs.readFileSync(filePath, 'utf8');
+                        if (this.dockerFileOriginals[file] === dockerFileContent) return;
 
-            // console.log("render Dockerfile path" + path);
-
-            // read docker file
-            if (fs.existsSync(path)) {
-
-                try {
-
-                    let dockerFile = fs.readFileSync(path, 'utf8');
-
-                    if (this.dockerFileOriginal == dockerFile) return;
-
-                    log("Updating docker file from file");
-
-                    global.state.editor.setValue(fs.readFileSync(path, 'utf8'));
-                    global.state.editor.clearSelection();
-
-                } catch (e) {
-
+                        log(`Updating ${file} from file`);
+                        global.state.editors[file].setValue(dockerFileContent);
+                        global.state.editors[file].clearSelection();
+                    } catch (e) {
+                        console.error(e);
+                    }
                 }
-            }
 
-            this.dockerFileOriginal = global.state.editor.getValue();
-
+                this.dockerFileOriginals[file] = global.state.editors[file].getValue();
+            });
         }, 5000);
     }
 
     destroy() {
-
         if (this.interval) clearInterval(this.interval);
     }
 }

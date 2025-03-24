@@ -408,29 +408,59 @@ export function deploy(id) {
 
     global.state.dev[id].edgePending = true;
 
+    global.state.dev[id].path = [];
+
+    if (!global.state.dev[id].iteration) global.state.dev[id].iteration = 0;
+
     document.querySelector(".edge-status[data-id='" + id + "']").classList.add("pending"); document.querySelector(".edge-status[data-id='" + id + "']").classList.remove("d-none");
+
+    if (cache.path) {
+        const devspaceFiles = fs.readdirSync(cache.path).filter(file => file.endsWith('.yaml') && file.startsWith('devspace'));
+
+        devspaceFiles.forEach(devspaceFile => {
+            const devspaceFilePath = path.join(cache.path, devspaceFile);
+
+            if (fs.existsSync(devspaceFilePath)) {
+
+                global.state.dev[id].path.push(devspaceFilePath);
+            }
+        });
+    }
+
+    deployRecursive(id, cache, kubeconfig);
+}
+
+export function deployRecursive(id, cache, kubeconfig) {
 
     let devspace = getDevspacePath();
 
-    if (cache.path) if (fs.existsSync(path.join(cache.path, 'devspace.yaml'))) {
+    if (global.state.dev[id].iteration >= global.state.dev[id].path.length) return;
 
-        try {
+    try {
 
-            let dev = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'devspace.yaml'), 'utf8'));
+        let devspaceFile = global.state.dev[id].path[global.state.dev[id].iteration];
+        let dev = yaml.loadAll(fs.readFileSync(global.state.dev[id].path[global.state.dev[id].iteration], 'utf8'));
 
-            if (dev[0]) dev = dev[0];
+        if (dev[0]) dev = dev[0];
 
-            log('deploy');
-            log(devspace + ' deploy -n ' + id + ' --config=devspace.yaml --kubeconfig=' + kubeconfig + ' --no-warn -b');
+        log('deploy devspaceFile', devspaceFile);
 
-            global.state.dev[id].proc = run_script('cd ' + cache.path + ' && docker login -u ' + dev.pullSecrets.pullsecret.username + ' -p ' + dev.pullSecrets.pullsecret.password + ' ' + dev.pullSecrets.pullsecret.registry + ' && ' + devspace + ' deploy -n ' + id + ' --config=devspace.yaml --kubeconfig=' + kubeconfig + ' -b', [], cb);
+        log(devspace + ' deploy -n ' + id + ' --config=' + devspaceFile + ' --kubeconfig=' + kubeconfig + ' --no-warn -b');
 
-        } catch (err) {
+        global.state.dev[id].proc = run_script(
+            'cd ' + cache.path + ' && docker login -u ' + dev.pullSecrets.pullsecret.username +
+            ' -p ' + dev.pullSecrets.pullsecret.password + ' ' + dev.pullSecrets.pullsecret.registry +
+            ' && ' + devspace + ' deploy -n ' + id + ' --config=' + devspaceFile + ' --kubeconfig=' + kubeconfig + ' -b',
+            [],
+            cb,
+            1,
+            (error) => { log('Deploy E: ', error.toString()); },
+            (output) => { if (output.toString().includes("Successfully deployed")) { log('Deploy O:', output.toString()); global.state.dev[id].iteration += 1; deployRecursive(id, cache, kubeconfig); } }
+        );
 
-            log(err);
-
-            parseError(err);
-        }
+    } catch (err) {
+        log(err);
+        parseError(err);
     }
 }
 

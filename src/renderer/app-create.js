@@ -141,7 +141,7 @@ export class AppCreate {
                                         <div class="mb-3 row">
                                             <label for="appTitle" class="col-sm-3 col-form-label">${__html('Title')}</label>
                                             <div class="col-sm-9">
-                                                <input type="text" class="form-control" id="appTitle" value="" >
+                                                <input type="text" class="form-control" id="appTitle" value="${global.state.app.title ? global.state.app.title : ""}" >
                                                 <p class="form-text">${__html('Unique app title.')}</p>
                                             </div>
                                         </div>
@@ -201,10 +201,12 @@ export class AppCreate {
 
             if (!getDefaultAppPath()) return;
 
-            document.querySelector('#appPath').value = path.join(kenzapdir, slugify(title).toLowerCase());
+            document.querySelector('#appPath').value = path.join(kenzapdir, slugify(title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g }));
 
             document.querySelector('.app-title').innerHTML = title;
         }
+
+        if (global.state.app.title) refreshPath(global.state.app.title);
 
         document.querySelector('#appTitle').addEventListener('change', e => { refreshPath(e.currentTarget.value); });
 
@@ -238,7 +240,7 @@ export class AppCreate {
             let data = {};
             data.title = document.querySelector("#appTitle").value.trim();
             data.project = document.querySelector('#appProject').value,
-                data.slug = slugify(data.title.toLowerCase());
+                data.slug = slugify(data.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g });
             data.id = data.slug;
             data.path = document.querySelector("#appPath").value.trim();
             data.description = document.querySelector("#appDescription").value.trim();
@@ -253,6 +255,8 @@ export class AppCreate {
             data.cats = [];
             data.new = true;
             data.clusters = this.appClusterPicker.get();
+            data.namespace = data.slug;
+            data.image = this.app.image;
 
             // validate
             if (data.title.length < 4) { alert(__html('Please provide longer title')); return; }
@@ -457,29 +461,29 @@ export class AppCreate {
             console.log(`Kubeconfig file not found at ${kubeconfigSource}`);
         }
 
-        // app.yaml
-        let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "app.yaml"), 'utf8');
-        app = app.replace(/template_username/g, data.registry.user);
-        app = app.replace(/template_slug/g, data.slug);
-        app = app.replace(/template_registry/g, `${v2(data.registry.domain)}`);
-        fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
+        // // app.yaml
+        // let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "app.yaml"), 'utf8');
+        // app = app.replace(/template_username/g, data.registry.user);
+        // app = app.replace(/template_slug/g, data.slug);
+        // app = app.replace(/template_registry/g, `${v2(data.registry.domain)}`);
+        // fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
 
-        // devspace.yaml
-        let devspace = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "devspace.yaml"), 'utf8');
-        devspace = devspace.replace(/template_username/g, data.registry.user);
-        devspace = devspace.replace(/template_password/g, data.registry.pass);
-        devspace = devspace.replace(/template_url_registry/g, `${https(v2(data.registry.domain))}`);
-        devspace = devspace.replace(/template_registry/g, `${v2(data.registry.domain)}`);
-        devspace = devspace.replace(/template_slug/g, data.slug);
-        fs.writeFileSync(path.join(data.path, 'devspace.yaml'), devspace);
+        // // devspace.yaml
+        // let devspace = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "devspace.yaml"), 'utf8');
+        // devspace = devspace.replace(/template_username/g, data.registry.user);
+        // devspace = devspace.replace(/template_password/g, data.registry.pass);
+        // devspace = devspace.replace(/template_url_registry/g, `${https(v2(data.registry.domain))}`);
+        // devspace = devspace.replace(/template_registry/g, `${v2(data.registry.domain)}`);
+        // devspace = devspace.replace(/template_slug/g, data.slug);
+        // fs.writeFileSync(path.join(data.path, 'devspace.yaml'), devspace);
 
         // publish endpoints to DNS
         // this.endpoints = new Endpoints(global);
         // this.endpoints.createEndpoints();
 
-        // copy custom app files
+        // copy app template files
         const templateFolder = path.join(__dirname, "..", "assets", "templates", "apps", this.app.image, this.app.id);
-        const filesToExclude = ["Dockerfile", "manifest.json"];
+        const filesToExclude = ["Dockerfile", "manifest.json", ".DS_Store"];
         if (fs.existsSync(templateFolder)) {
 
             const files = fs.readdirSync(templateFolder);
@@ -511,7 +515,10 @@ export class AppCreate {
 
                         copyFolderRecursiveSync(sourcePath, targetPath);
                     } else {
+
                         fs.copyFileSync(sourcePath, targetPath);
+
+                        if (!file.startsWith('.')) this.applyActions(data, targetPath);
                     }
                 }
             });
@@ -519,33 +526,33 @@ export class AppCreate {
             console.log(`Template folder not found at ${templateFolder}`);
         }
 
-        // endpoints.yaml copy if not exists
-        let endpointsPath = path.join(data.path, 'endpoints.yaml');
-        if (!fs.existsSync(endpointsPath)) {
+        // // endpoints.yaml copy if not exists
+        // let endpointsPath = path.join(data.path, 'endpoints.yaml');
+        // if (!fs.existsSync(endpointsPath)) {
 
-            let endpoints = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "endpoints.yaml"), 'utf8');
-            fs.writeFileSync(endpointsPath, endpoints);
-        }
+        //     let endpoints = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "endpoints.yaml"), 'utf8');
+        //     fs.writeFileSync(endpointsPath, endpoints);
+        // }
 
-        // update endpoints.yaml
-        let endpoints = fs.readFileSync(endpointsPath, 'utf8');
-        let template_endpoint = data.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
-        endpoints = endpoints.replace(/template_namespace/g, data.slug);
-        endpoints = endpoints.replace(/template_slug/g, data.slug);
-        endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
-        fs.writeFileSync(endpointsPath, endpoints);
+        // // update endpoints.yaml
+        // let endpoints = fs.readFileSync(endpointsPath, 'utf8');
+        // let template_endpoint = data.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
+        // endpoints = endpoints.replace(/template_namespace/g, data.slug);
+        // endpoints = endpoints.replace(/template_slug/g, data.slug);
+        // endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
+        // fs.writeFileSync(endpointsPath, endpoints);
 
-        // .gitignore
-        let gitignore = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", ".gitignore"), 'utf8');
-        fs.writeFileSync(path.join(data.path, '.gitignore'), gitignore);
+        // // .gitignore
+        // let gitignore = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", ".gitignore"), 'utf8');
+        // fs.writeFileSync(path.join(data.path, '.gitignore'), gitignore);
 
         // Dockerfile TODO multi file support
-        data.dockerfiles.forEach(dockerfile => {
+        // data.dockerfiles.forEach(dockerfile => {
 
-            log('Creating Dockerfile:', dockerfile.name);
-            let dockerfilePath = path.join(data.path, 'Dockerfile');
-            fs.writeFileSync(dockerfilePath, dockerfile.content);
-        });
+        //     log('Creating Dockerfile:', dockerfile.name);
+        //     let dockerfilePath = path.join(data.path, 'Dockerfile');
+        //     fs.writeFileSync(dockerfilePath, dockerfile.content);
+        // });
 
         // fs.writeFileSync(path.join(data.path, 'Dockerfile'), data.app.dockerfile);
 
@@ -592,6 +599,25 @@ export class AppCreate {
 
         // load app settings page
         setTimeout(() => { new Settings(data.slug); }, 2000);
+    }
+
+    applyActions(data, targetPath) {
+
+        // read file
+        let fileContent = fs.readFileSync(targetPath, 'utf8');
+
+        // apply manifest.json rules
+        fileContent = this.app.actions.apply("firstView", fileContent);
+
+        // CI/CD settings
+        fileContent = fileContent.replace(/template_registry_url/g, `${https(v2(data.registry.domain))}`);
+        fileContent = fileContent.replace(/template_registry_username/g, data.registry.user);
+        fileContent = fileContent.replace(/template_registry_password/g, data.registry.pass);
+        fileContent = fileContent.replace(/template_registry/g, `${v2(data.registry.domain)}`);
+        fileContent = fileContent.replace(/template_slug/g, data.slug);
+
+        // save changes
+        fs.writeFileSync(targetPath, fileContent);
     }
 
     setLoading(state) {

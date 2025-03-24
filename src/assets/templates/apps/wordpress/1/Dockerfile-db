@@ -1,0 +1,16 @@
+# Use official Mysql image as base
+FROM mysql:latest
+
+# Install custom packages (optional)
+RUN microdnf update
+RUN microdnf install nano
+
+# Set environment variables (can be overridden at runtime)
+ENV MYSQL_ALLOW_EMPTY_PASSWORD=true
+ENV MYSQL_DATABASE=template_wordpress_db_name
+ENV MYSQL_USER=template_wordpress_db_user
+ENV MYSQL_PASSWORD=template_wordpress_db_pass
+ENV MYSQL_ROOT_PASSWORD=template_wordpress_db_root_pass
+
+# Expose port 3306 to accept database connection
+EXPOSE 3306

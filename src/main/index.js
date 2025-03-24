@@ -15,8 +15,8 @@ function createMainWindow() {
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: __dirname + '/assets/img/icon',
-    webPreferences: { nodeIntegration: true, contextIsolation: false }
+    icon: path.join(__dirname, "assets", "img", "icon"),
+    webPreferences: { nodeIntegration: true, contextIsolation: false, preload: path.join(__dirname, 'preload.js') }
   })
 
   window.setTitle("KENZAP");
@@ -136,4 +136,38 @@ app.on('ready', () => {
     );
     return returnValue;
   });
+
+
+  // Function to load plugins dynamically
+  async function loadPlugin(pluginName) {
+    try {
+      const pluginPath = path.resolve(path.join(__dirname, "..", "assets", "templates", "apps", pluginName, "1", "actions", "index.js"));
+
+      const { Actions } = require(pluginPath).default || require(pluginPath);
+
+      console.log(Actions);
+
+      // const plugin = require(pluginPath);
+      return Actions;
+    } catch (error) {
+      console.error(`Failed to load plugin: ${pluginName}`, error);
+      return null;
+    }
+  }
+
+  // Handle requests to load a plugin dynamically
+  ipcMain.handle("load-plugin", async (event, pluginName) => {
+    const plugin = await loadPlugin(pluginName);
+    return plugin ? plugin.name : null;
+  });
+
+  ipcMain.handle("run-plugin-action", async (event, pluginName, action, data) => {
+    const plugin = await loadPlugin(pluginName);
+    if (plugin && typeof plugin[action] === "function") {
+      return plugin[action](data);
+    } else {
+      return `Action ${action} not found in ${pluginName}`;
+    }
+  });
+
 })
