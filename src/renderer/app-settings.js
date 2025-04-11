@@ -133,7 +133,7 @@ export class Settings {
         // get icon
         let icon = `<img src="${loading}" data-srcset="${loading}" class="img-fluid rounded" alt="App placeholder" srcset="${loading}">`;
 
-        if (this.app.app) getAppIcon(this.app);
+        getAppIcon(this.app);
 
         document.querySelector('body').innerHTML = `
             <navigation-header></navigation-header>

@@ -42,10 +42,14 @@ export function getAppList() {
  */
 export function getAppIcon(app) {
 
+    log("getAppIcon", app);
+
     let conversions = { "httpd": "apache", "node": "nodejs" };
     let slug = conversions[app.app.slug] || app.app.slug;
     if (!slug) slug = app.image;
     let url = `https://kenzap.cloud/static/apps/${slug}.svg?lastmod=3`;
+
+    log("url", url);
 
     fetch(url, {
         //  method: 'HEAD',
