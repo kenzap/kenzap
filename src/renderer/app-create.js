@@ -32,6 +32,7 @@ import "../assets/scss/app.css"
  *
  * @link 
  * @since 1.0.0
+ * @deprecated
  *
  * @package Kenzap
  */
@@ -239,8 +240,8 @@ export class AppCreate {
             // validate data
             let data = {};
             data.title = document.querySelector("#appTitle").value.trim();
-            data.project = document.querySelector('#appProject').value,
-                data.slug = slugify(data.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g });
+            data.project = document.querySelector('#appProject').value;
+            data.slug = slugify(data.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g });
             data.id = data.slug;
             data.path = document.querySelector("#appPath").value.trim();
             data.description = document.querySelector("#appDescription").value.trim();
@@ -266,11 +267,6 @@ export class AppCreate {
 
             // create app folder if not exists
             if (!fs.existsSync(data.path)) { fs.mkdirSync(data.path); }
-
-            // show loading
-            // showLoader();
-
-            // cacheSettings(data); return;
 
             if (this.loading) return;
 
@@ -441,10 +437,6 @@ export class AppCreate {
         // get cluster
         let cluster = settings.clusters.find(cluster => cluster.id == id);
 
-        // return;
-
-        // this.console(cluster);
-
         // get cert data
         data.certData = fs.readFileSync(path.join(data.path, `${data.slug}.crt`)).toString('base64').replace(/\n/g, '');
         data.keyData = fs.readFileSync(path.join(data.path, `${data.slug}.key`)).toString('base64').replace(/\n/g, '');
@@ -461,29 +453,38 @@ export class AppCreate {
             console.log(`Kubeconfig file not found at ${kubeconfigSource}`);
         }
 
-        // // app.yaml
-        // let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "app.yaml"), 'utf8');
-        // app = app.replace(/template_username/g, data.registry.user);
-        // app = app.replace(/template_slug/g, data.slug);
-        // app = app.replace(/template_registry/g, `${v2(data.registry.domain)}`);
-        // fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
+        // check if app.yaml is missing
+        if (!fs.existsSync(path.join(data.path, "devspace.yaml"))) {
 
-        // // devspace.yaml
-        // let devspace = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "devspace.yaml"), 'utf8');
-        // devspace = devspace.replace(/template_username/g, data.registry.user);
-        // devspace = devspace.replace(/template_password/g, data.registry.pass);
-        // devspace = devspace.replace(/template_url_registry/g, `${https(v2(data.registry.domain))}`);
-        // devspace = devspace.replace(/template_registry/g, `${v2(data.registry.domain)}`);
-        // devspace = devspace.replace(/template_slug/g, data.slug);
-        // fs.writeFileSync(path.join(data.path, 'devspace.yaml'), devspace);
+            let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "devspace.yaml"), 'utf8');
+            fs.writeFileSync(path.join(data.path, 'devspace.yaml'), app);
+            this.applyActions(data, path.join(data.path, "devspace.yaml"));
+        }
 
-        // publish endpoints to DNS
-        // this.endpoints = new Endpoints(global);
-        // this.endpoints.createEndpoints();
+        // check if app.yaml is missing
+        if (!fs.existsSync(path.join(data.path, "app.yaml"))) {
+
+            let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "app.yaml"), 'utf8');
+            fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
+            log("applying rules for app.yaml");
+            this.applyActions(data, path.join(data.path, 'app.yaml'));
+        }
+
+        // check if endpoints.yaml is missing
+        let endpointsPath = path.join(data.path, 'endpoints.yaml');
+
+        // check if endpoints.yaml is missing
+        if (!fs.existsSync(endpointsPath)) {
+
+            // create endpoints.yaml
+            let endpoints = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "endpoints.yaml"), 'utf8');
+            fs.writeFileSync(endpointsPath, endpoints);
+            this.applyActions(data, endpointsPath);
+        }
 
         // copy app template files
         const templateFolder = path.join(__dirname, "..", "assets", "templates", "apps", this.app.image, this.app.id);
-        const filesToExclude = ["Dockerfile", "manifest.json", ".DS_Store"];
+        const filesToExclude = ["manifest.json", ".DS_Store"];
         if (fs.existsSync(templateFolder)) {
 
             const files = fs.readdirSync(templateFolder);
@@ -523,76 +524,43 @@ export class AppCreate {
                 }
             });
         } else {
-            console.log(`Template folder not found at ${templateFolder}`);
+            log(`Template folder not found at ${templateFolder}`);
         }
 
-        // // endpoints.yaml copy if not exists
-        // let endpointsPath = path.join(data.path, 'endpoints.yaml');
-        // if (!fs.existsSync(endpointsPath)) {
-
-        //     let endpoints = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "endpoints.yaml"), 'utf8');
-        //     fs.writeFileSync(endpointsPath, endpoints);
-        // }
-
-        // // update endpoints.yaml
-        // let endpoints = fs.readFileSync(endpointsPath, 'utf8');
-        // let template_endpoint = data.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
-        // endpoints = endpoints.replace(/template_namespace/g, data.slug);
-        // endpoints = endpoints.replace(/template_slug/g, data.slug);
-        // endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
-        // fs.writeFileSync(endpointsPath, endpoints);
-
-        // // .gitignore
-        // let gitignore = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", ".gitignore"), 'utf8');
-        // fs.writeFileSync(path.join(data.path, '.gitignore'), gitignore);
-
-        // Dockerfile TODO multi file support
-        // data.dockerfiles.forEach(dockerfile => {
-
-        //     log('Creating Dockerfile:', dockerfile.name);
-        //     let dockerfilePath = path.join(data.path, 'Dockerfile');
-        //     fs.writeFileSync(dockerfilePath, dockerfile.content);
-        // });
-
-        // fs.writeFileSync(path.join(data.path, 'Dockerfile'), data.app.dockerfile);
-
-        // return;
-
-        // _
-        // const sourceDir = path.join(__dirname, "..", "assets", "templates", "app", "_");
-        // const targetDir = path.join(data.path, '_');
-
-        // const copyFolderRecursiveSync = (source, target) => {
-        //     if (!fs.existsSync(target)) {
-        //         fs.mkdirSync(target);
-        //     }
-
-        //     if (fs.lstatSync(source).isDirectory()) {
-        //         const files = fs.readdirSync(source);
-        //         files.forEach(file => {
-        //             const curSource = path.join(source, file);
-        //             const curTarget = path.join(target, file);
-        //             if (fs.lstatSync(curSource).isDirectory()) {
-        //                 copyFolderRecursiveSync(curSource, curTarget);
-        //             } else {
-        //                 fs.copyFileSync(curSource, curTarget);
-        //             }
-        //         });
-        //     }
-        // };
-
-        // copyFolderRecursiveSync(sourceDir, targetDir);
+        // update endpoints.yaml
+        let endpoints = fs.readFileSync(endpointsPath, 'utf8');
+        let template_endpoint = data.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
+        endpoints = endpoints.replace(/template_namespace/g, data.slug);
+        endpoints = endpoints.replace(/template_slug/g, data.slug);
+        endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
+        fs.writeFileSync(endpointsPath, endpoints);
 
         hideLoader();
 
         cacheSettings(data);
 
+        log(data)
+
         if (!global.state.dev[data.id]) global.state.dev[data.id] = { status: "stop", edgeStatus: "d-none" }
 
-        this.console(`App created in ${data.path}`);
+        log(`App created in ${data.path} with ${data.slug} namespace and ${this.app.id} app id`);
+
+        global.state.app.id = data.slug;
+        global.state.app.title = data.title;
+        global.state.app.clusters = data.clusters;
+        global.state.app.project = data.project;
+        global.state.app.image = this.app.image;
 
         // apply endpoints
-        setTimeout(() => { run_script('cd ' + data.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster.id + '.yaml', [], () => { }); }, 2000);
+        setTimeout(() => {
+
+            // publish endpoints to DNS
+            this.endpoints = new Endpoints(global);
+            this.endpoints.init();
+            this.endpoints.createEndpoints();
+
+            run_script('cd ' + data.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster.id + '.yaml', [], () => { });
+        }, 2000);
 
         // clean up
         setTimeout(() => { run_script(`cd ${data.path}; rm -Rf ${data.slug}.crt; rm -Rf ${data.slug}.key; rm -Rf ${data.slug}.csr; rm -Rf ${data.slug}-user-roles.yaml; rm -Rf ${data.slug}-user-role-binding.yaml; rm -Rf ${data.slug}-csr.yaml; rm -Rf ${data.slug}-network-policy.yaml;`, [], () => { this.console('Cleaning up'); }); }, 20000);
@@ -615,6 +583,7 @@ export class AppCreate {
         fileContent = fileContent.replace(/template_registry_password/g, data.registry.pass);
         fileContent = fileContent.replace(/template_registry/g, `${v2(data.registry.domain)}`);
         fileContent = fileContent.replace(/template_slug/g, data.slug);
+        fileContent = fileContent.replace(/template_namespace/g, data.slug);
 
         // save changes
         fs.writeFileSync(targetPath, fileContent);
@@ -633,13 +602,18 @@ export class AppCreate {
 
         } else {
 
-            document.querySelector('.btn-app-create').innerHTML = `
-                <span class="d-flex" role="status" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2" viewBox="0 0 16 16">
-                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
-                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"></path>
-                    </svg>
-                </span>`;
+            setTimeout(() => {
+
+                if (document.querySelector('.btn-app-create')) document.querySelector('.btn-app-create').innerHTML = `
+                    <span class="d-flex" role="status" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2" viewBox="0 0 16 16">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"></path>
+                        </svg>  
+                    </span>
+                    ${__html('Create')}
+                    `;
+            }, 3000);
 
             this.loading = false;
 

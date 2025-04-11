@@ -10,8 +10,8 @@ import { VersionControl } from '../assets/js/version-control.js'
 import { getAppList, getAppIcon } from '../assets/js/app-list-helpers.js'
 import { AppProjects } from '../assets/js/app-projects.js'
 import { AppStatus } from '../assets/js/app-status.js'
-import { AppCreate } from './app-create.js'
-import { AppPicker } from '../assets/js/app-picker.js'
+// import { AppCreate } from './app-create.js'
+import { AppCreate } from '../assets/js/app-create.js'
 import { Footer } from '../assets/js/app-footer.js'
 import { Settings } from './app-settings.js'
 import { ClusterList } from './cluster-list.js'
@@ -369,7 +369,7 @@ export class AppList {
 
             e.preventDefault();
 
-            new AppPicker();
+            new AppCreate();
 
             // new AppCreate();
         });

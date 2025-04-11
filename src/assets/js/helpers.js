@@ -32,6 +32,13 @@ export function log(...args) {
     console.log(...args);
 }
 
+export function consoleUI(...args) {
+
+    let data = args.join('<br>');
+
+    if (document.querySelector('.console-output')) document.querySelector('.console-output').innerHTML = data;
+}
+
 /**
  * @name showLoader
  * @description Initiates full screen three dots loader.

@@ -20,21 +20,21 @@
 
 define( 'WP_DEBUG', true );
 
-define( 'WP_HOME', getenv('WP_HOME') ?: 'template_wordpress_endpoint' );
-define( 'WP_SITEURL', getenv('WP_SITEURL') ?: 'template_wordpress_endpoint' );
+define( 'WP_HOME', 'template_https_endpoint' );
+define( 'WP_SITEURL', 'template_https_endpoint' );
 
 // ** Database settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
-define( 'DB_NAME', getenv('WORDPRESS_DB_NAME') ?: 'template_wordpress_db_name' );
+define( 'DB_NAME', 'template_wordpress_db_name' );
 
 /** Database username */
-define( 'DB_USER', getenv('WORDPRESS_DB_USER') ?: 'template_wordpress_db_user' );
+define( 'DB_USER', 'template_wordpress_db_user' );
 
 /** Database password */
-define( 'DB_PASSWORD', getenv('WORDPRESS_DB_PASSWORD') ?: 'template_wordpress_db_pass' );
+define( 'DB_PASSWORD', 'template_wordpress_db_pass' );
 
 /** Database hostname */
-define( 'DB_HOST', getenv('WORDPRESS_DB_HOST') ?: 'template_wordpress_db_host' );
+define( 'DB_HOST', 'db.template_namespace' );
 
 /** Database charset to use in creating database tables. */
 define( 'DB_CHARSET', 'utf8' );

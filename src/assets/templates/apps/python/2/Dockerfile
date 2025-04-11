@@ -16,5 +16,8 @@ COPY _ .
 # Expose the port the app runs on
 EXPOSE 5000
 
+# Set environment variable for Flask auto-reload
+ENV FLASK_ENV=development
+
 # Command to run the Python script
-CMD ["python", "app.py"]
+CMD ["flask", "--app", "app.py", "--debug", "run", "--host=0.0.0.0"]

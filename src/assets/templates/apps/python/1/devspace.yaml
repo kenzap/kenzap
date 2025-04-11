@@ -4,12 +4,14 @@ images:
     image: template_registry
     dockerfile: ./Dockerfile
     buildKit:
-      args: ["--platform", "linux/arm64"]
+      args:
+        - '--platform'
+        - linux/arm64
 deployments:
   app:
     kubectl:
       manifests:
-      - app.yaml
+        - app.yaml
 pullSecrets:
   pullsecret:
     registry: template_registry_url
@@ -20,14 +22,14 @@ localRegistry:
 dev:
   app:
     imageSelector: template_registry
-    arch: "arm64"
+    arch: arm64
     sync:
-    - path: _:/var/www
-      excludeFile: .ignore
-      excludePaths:
-      - Dockerfile
-      - .devspace/
-      - .ignore
-      - app.yaml
-      - devspace.yaml
-      - config/
+      - path: _:/app
+        excludeFile: .ignore
+        excludePaths:
+          - Dockerfile
+          - .devspace/
+          - .ignore
+          - app.yaml
+          - devspace.yaml
+          - config/

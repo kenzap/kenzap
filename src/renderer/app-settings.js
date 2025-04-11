@@ -25,6 +25,7 @@ import "../assets/scss/settings.css"
 import * as path from 'path';
 import fs from "fs"
 import loading from '../assets/img/loading.png';
+import cluster from 'cluster';
 
 /** 
  * Settings class. App settings page.
@@ -280,24 +281,52 @@ export class Settings {
                 path: document.querySelector('#appPath').value,
                 endpoints: this.endpoints.get(),
                 resources: this.appResources.get(),
+                clusters: this.appClusterPicker.get(),
                 app: getAppDetails(this.app.id),
                 users: [],
             };
 
-            let id = "GJDmHH";
+            // console.log("App data", data); return;
 
-            // Copy kubeconfig from parent folder /.kenzap
-            let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+            // Remove all files that start with kubeconfig in the app folder, except those in data.clusters
+            const clusterIds = data.clusters.map(id => `kubeconfig-${id}.yaml`);
+            fs.readdirSync(data.path).forEach(file => {
+                if (file.startsWith('kubeconfig') && !clusterIds.includes(file)) {
+                    const filePath = path.join(data.path, file);
+                    fs.unlinkSync(filePath);
+                    log(`Removed kubeconfig file: ${filePath}`);
+                }
+            });
 
-            const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
-            const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
+            // Copy kubeconfig from app folder only if missing in clusterIds
+            data.clusters.forEach(id => {
 
-            if (fs.existsSync(kubeconfigSource)) {
-                fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
-                log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
-            } else {
-                log(`Kubeconfig file not found at ${kubeconfigSource}`);
-            }
+                let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+                const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
+                const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
+
+                console.log("Copying kubeconfig from: ", kubeconfigSource);
+
+                if (!fs.existsSync(kubeconfigDestination) && fs.existsSync(kubeconfigSource)) {
+                    fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
+                    log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
+                } else if (!fs.existsSync(kubeconfigSource)) {
+                    log(`Kubeconfig file not found at ${kubeconfigSource}`);
+                }
+            });
+
+            // // Copy kubeconfig from parent folder /.kenzap
+            // let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+
+            // const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
+            // const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
+
+            // if (fs.existsSync(kubeconfigSource)) {
+            //     fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
+            //     log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
+            // } else {
+            //     log(`Kubeconfig file not found at ${kubeconfigSource}`);
+            // }
 
             this.appRegistry.save();
 

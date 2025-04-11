@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: template_namespace
+  namespace: template_namespace
+  labels:
+    app: template_namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: template_namespace
+  template:
+    metadata:
+      labels:
+        app: template_namespace
+    spec:
+      containers:
+        - name: template_namespace
+          image: template_registry
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+            limits:
+              memory: 500Mi
+              cpu: 100m
+          terminationMessagePath: /var/term.log
+          env:
+            - name: APP
+              value: template_namespace
+            - name: VERSION
+              value: '1.0'
+      imagePullSecrets:
+        - name: devspace-pull-secrets

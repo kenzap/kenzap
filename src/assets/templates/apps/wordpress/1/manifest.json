@@ -72,6 +72,38 @@
     },
     {
       "trigger": "firstView",
+      "action": "genToken('template_wordpress_auth_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_secure_auth_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_logged_in_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_nonce_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_auth_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_secure_auth_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_logged_in_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_nonce_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
       "action": "replaceValue('template_wordpress_db_name', 'wordpress_db_name')"
     },
     {
@@ -89,6 +121,38 @@
     {
       "trigger": "firstView",
       "action": "replaceValue('template_wordpress_db_host', 'wordpress_db_host')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_auth_key', 'template_wordpress_auth_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_secure_auth_key', 'template_wordpress_secure_auth_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_logged_in_key', 'template_wordpress_logged_in_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_nonce_key', 'template_wordpress_nonce_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_auth_salt', 'template_wordpress_auth_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_secure_auth_salt', 'template_wordpress_secure_auth_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_logged_in_salt', 'template_wordpress_logged_in_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_nonce_salt', 'template_wordpress_nonce_salt')"
     },
     {
       "trigger": "firstView",

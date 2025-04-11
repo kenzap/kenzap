@@ -80,15 +80,23 @@ export function installKubernetes(cluster, server) {
 
         let sh = fs.readFileSync(path.join(__dirname, "../templates/sh/install-kubernetes.sh")).toString();
 
-        let conn = run_ssh_script(sh, "install-kubernetes.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); global.state.installKubernetesErrors.push(error); console.log("install-kubernetes error", error); }, (data) => { });
+        let conn = run_ssh_script(sh, "install-kubernetes.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); global.state.installKubernetesErrors.push(error); console.log("install-kubernetes error", error.toString()); }, (data) => { });
     }
 
     // install kubernetes addons
     let step2 = () => {
 
+        log("install step2");
+
         let cb = (data) => {
 
+            log(data.toString());
+
+            if (!data.toString()) return;
+
             let result = parseInstallResult(data);
+
+            if (!result) return;
 
             if (result.success) {
 
@@ -100,7 +108,10 @@ export function installKubernetes(cluster, server) {
 
         let sh = fs.readFileSync(path.join(__dirname, "../templates/sh/install-kubernetes-addons.sh")).toString();
 
-        run_ssh_script(sh, "install-kubernetes-addons.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); global.state.installKubernetesErrors.push(error); console.log("install-kubernetes-addons error", error); }, (data) => { }); // parseErrorResult(error, cluster, server);
+        // Replace placeholder with cluster IP address
+        sh = sh.replace("kenzap_ip_address", cluster.servers[0].server);
+
+        run_ssh_script(sh, "install-kubernetes-addons.sh", server, cb, 0, (tag, error) => { parseErrorResult(tag, error, cluster, server); global.state.installKubernetesErrors.push(error); console.log("install-kubernetes-addons error", error.toString()); }, (data) => { }); // parseErrorResult(error, cluster, server);
 
         global.state.refreshClusters();
     }
@@ -144,35 +155,40 @@ export function retrieveAllClusterNodes(cluster, cb) {
 
         log(data);
 
-        data = JSON.parse(data);
+        try {
+            data = JSON.parse(data);
 
-        cluster.nodes = [];
+            cluster.nodes = [];
 
-        // Add servers if not yet in the array, check by server IP address
-        data.items.forEach(item => {
+            // Add servers if not yet in the array, check by server IP address
+            data.items.forEach(item => {
 
-            added = true;
+                added = true;
 
-            cluster.nodes.push({
-                id: getToken(6), // You might need to implement this function
-                server: item.status.addresses[0].address,
-                host: item.status.addresses[1].address,
-                capacity: item.status.capacity,
-                version: item.status.nodeInfo.kubeletVersion
+                cluster.nodes.push({
+                    id: getToken(6), // You might need to implement this function
+                    server: item.status.addresses[0].address,
+                    host: item.status.addresses[1].address,
+                    capacity: item.status.capacity,
+                    version: item.status.nodeInfo.kubeletVersion
+                });
             });
-        });
 
-        if (added) {
+            if (added) {
 
-            let settings = getKenzapSettings();
+                let settings = getKenzapSettings();
 
-            settings.clusters = settings.clusters.map(c => c.id === cluster.id ? cluster : c);
+                settings.clusters = settings.clusters.map(c => c.id === cluster.id ? cluster : c);
 
-            log(`Cluster Nodes to Add : ${JSON.stringify(cluster.nodes)}`);
+                log(`Cluster Nodes to Add : ${JSON.stringify(cluster.nodes)}`);
 
-            saveKenzapSettings(settings);
+                saveKenzapSettings(settings);
 
-            if (typeof cb === 'function') cb();
+                if (typeof cb === 'function') cb();
+            }
+        } catch (error) {
+
+            log(`Error processing cluster nodes: ${error}`);
         }
     });
 }

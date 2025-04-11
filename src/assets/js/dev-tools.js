@@ -401,11 +401,6 @@ export function deploy(id) {
 
     if (!kubeconfig) return;
 
-    let cb = () => {
-
-        global.state.loading = false;
-    }
-
     global.state.dev[id].edgePending = true;
 
     global.state.dev[id].path = [];
@@ -434,7 +429,7 @@ export function deployRecursive(id, cache, kubeconfig) {
 
     let devspace = getDevspacePath();
 
-    if (global.state.dev[id].iteration >= global.state.dev[id].path.length) return;
+    if (global.state.dev[id].iteration >= global.state.dev[id].path.length) { global.state.loading = false; return; }
 
     try {
 
