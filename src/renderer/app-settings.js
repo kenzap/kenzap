@@ -67,7 +67,7 @@ export class Settings {
         this.view();
 
         // data centers
-        this.appClusterPicker = new AppClusterPicker(global);
+        this.appClusterPicker = new AppClusterPicker(this.app);
         this.appClusterPicker.init();
 
         // init header
@@ -79,7 +79,7 @@ export class Settings {
         this.appStats.init();
 
         // docker file
-        this.endpoints = new Endpoints(global);
+        this.endpoints = new Endpoints(this.app);
         this.endpoints.init();
 
         // docker file
@@ -130,11 +130,6 @@ export class Settings {
 
     view() {
 
-        // get icon
-        let icon = `<img src="${loading}" data-srcset="${loading}" class="img-fluid rounded" alt="App placeholder" srcset="${loading}">`;
-
-        getAppIcon(this.app);
-
         document.querySelector('body').innerHTML = `
             <navigation-header></navigation-header>
             <div class="container p-edit app-settings">
@@ -177,7 +172,7 @@ export class Settings {
                                         <div class="d-flex align-items-center justify-content-start">
                                             <div class="timgc app-settings icon-md" data-id="${attr(this.app.id)}">
                                                 <a href="#">
-                                                ${icon}
+                                                    ${getAppIcon(this.app)}
                                                 </a>
                                             </div>
                                             <div class="ms-3">
@@ -274,7 +269,7 @@ export class Settings {
             let data = {
                 id: this.app.id,
                 title: document.querySelector('#appTitle').value.trim(),
-                slug: slugify(document.querySelector('#appTitle').value).toLowerCase(),
+                slug: slugify(this.app.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g }),
                 project: document.querySelector('#appProject').value,
                 description: document.querySelector('#appDescription').value.trim(),
                 keywords: document.querySelector('#appKeywords').value,
@@ -282,6 +277,7 @@ export class Settings {
                 endpoints: this.endpoints.get(),
                 resources: this.appResources.get(),
                 clusters: this.appClusterPicker.get(),
+                dockerfiles: this.dockerFile.get(),
                 app: getAppDetails(this.app.id),
                 users: [],
             };

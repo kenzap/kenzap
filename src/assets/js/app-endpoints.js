@@ -9,14 +9,17 @@ import * as path from 'path';
 
 export class Endpoints {
 
-    constructor(global) {
+    constructor(app) {
 
         this.selector = "app-endpoints";
-        this.global = global;
-        this.app = this.global.state.app;
+        // this.global = global;
+        this.app = app;
         this.usedPorts = [];
 
+        console.log("Endpoints", this.app);
+
         if (!this.app) this.app = { env: [] };
+        // if (!this.app.endpoints) this.endpoints = { env: [] };
         if (!this.annotations) this.annotations = this.app.annotations;
     }
 

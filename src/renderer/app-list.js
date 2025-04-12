@@ -212,24 +212,13 @@ export class AppList {
                     }
                 }
 
-                // get icon
-                let icon = `
-                    <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
-                        <div class="app-icon" >
-                            <img src="${loading}" alt="loader" class="img-fluid rounded d-none" style="width: 64px; height: 64px; border-radius: 15px;">
-                        </div>
-                    </div>
-                `;
-
-                if (app.app) getAppIcon(app);
-
                 return `
                                                             <tr>
                                                                 <td style="width:46px;">   
                                                                     <div class="edge-status ${attr(global.state.dev[app.id].edgeStatus)}" data-id="${attr(app.id)}"></div>
                                                                     <div class="timgc app-settings icon-sm" data-id="${attr(app.id)}">
                                                                         <a href="#" class="align-items-center justify-content-between">
-                                                                        ${icon}
+                                                                            ${getAppIcon(app)}
                                                                         </a>
                                                                     </div>
                                                                 </td>

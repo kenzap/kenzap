@@ -4,6 +4,7 @@ import { __html, attr, getDefaultAppPath, getSetting, log } from './helpers.js'
 import fs from 'fs';
 import path from 'path';
 import simpleIcons from '../libs/simple-icons.json';
+import loading from '../../assets/img/loading.png';
 
 /**
  * Retrieves a list of application directories that contain an '.kenzap' file.
@@ -42,14 +43,35 @@ export function getAppList() {
  */
 export function getAppIcon(app) {
 
-    log("getAppIcon", app);
+    // log("getAppIcon", app);
+    // return;
 
     let conversions = { "httpd": "apache", "node": "nodejs" };
-    let slug = conversions[app.app.slug] || app.app.slug;
-    if (!slug) slug = app.image;
-    let url = `https://kenzap.cloud/static/apps/${slug}.svg?lastmod=3`;
+    let url = "";
+
+    log("getAppIcon", app);
+
+    if (app.icon) url = app.icon;
+
+    // if (!url && app.app && app.app.slug) url = `https://kenzap.cloud/static/apps/${conversions[app.app.slug] || app.app.slug}.svg?lastmod=3`;
+
+    // if (!url && app.image) url = `https://kenzap.cloud/static/apps/${app.image}.svg?lastmod=3`;
+
+    if (!url && app.dockerfiles && app.dockerfiles.length > 0) {
+
+        const dockerfileContent = app.dockerfiles[0].content;
+        const imageMatch = dockerfileContent.match(/^FROM\s+([^\s]+)/m);
+        if (imageMatch && imageMatch[1]) {
+
+            let slug = imageMatch[1].split(':')[0].replace(/\//g, '-');
+            log("imageMatch", slug);
+            url = `https://kenzap.cloud/static/apps/${slug}.svg?lastmod=5`;
+        }
+    }
 
     log("url", url);
+
+    if (!url) url = loading;
 
     fetch(url, {
         //  method: 'HEAD',
@@ -59,8 +81,8 @@ export function getAppIcon(app) {
 
                 document.querySelector(".timgc[data-id='" + app.id + "']").innerHTML = `
                 <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
-                    <div class="app-icon" data-id="${attr(app.image)}" >
-                        <img src="${url}" alt="${app.app.name}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">
+                    <div class="app-icon" data-id="${attr(app.title)}" >
+                        <img src="${url}" alt="${app.title}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">
                     </div>
                 </div>
                 `;
@@ -73,6 +95,14 @@ export function getAppIcon(app) {
         .catch(error => {
             console.error(`Error fetching icon from ${url}:`, error);
         });
+
+    return `
+        <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
+            <div class="app-icon" >
+                <img src="${loading}" alt="loader" class="img-fluid rounded d-none" style="width: 64px; height: 64px; border-radius: 15px;">
+            </div>
+        </div>
+        `;
 }
 
 /**

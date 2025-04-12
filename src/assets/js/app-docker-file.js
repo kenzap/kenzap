@@ -94,8 +94,6 @@ export class DockerFile {
 
         document.querySelector('docker-file').innerHTML = this.view();
         this.render();
-        // this.listeners();
-
 
         this.interval = setInterval(() => {
             this.dockerFiles.forEach(file => {
@@ -117,6 +115,13 @@ export class DockerFile {
                 this.dockerFileOriginals[file] = global.state.editors[file].getValue();
             });
         }, 5000);
+    }
+
+    get() {
+        return Object.entries(this.dockerFileOriginals).map(([key, value]) => ({
+            name: key,
+            content: value
+        }));
     }
 
     destroy() {
