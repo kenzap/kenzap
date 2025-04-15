@@ -4,6 +4,7 @@ import { __html, attr, onClick, getKenzapSettings } from './helpers.js'
 import { Actions } from './app-actions.js'
 import { AppCreateTitle } from './app-create-title.js'
 import { AppCreateCluster } from './app-create-cluster.js'
+import { getAppRegistry } from './app-registry-helpers.js'
 import * as ace from 'ace-builds/src-noconflict/ace';
 import 'ace-builds/webpack-resolver'
 import 'ace-builds/src-noconflict/theme-monokai'
@@ -26,9 +27,15 @@ export class AppCreateImage {
 
         this.settings = getKenzapSettings();
 
-        console.log(this.settings);
+        // console.log(this.settings);
 
         this.init();
+
+        // preload app registry for app deployment
+        if (!this.app.registry) getAppRegistry(this.app, (registry) => {
+
+            this.app.registry = registry;
+        });
     }
 
     init() {
@@ -70,9 +77,9 @@ export class AppCreateImage {
 
         // footer buttons
         document.querySelector(".modal-footer").innerHTML = `
-        <div class="btn-group-" role="group" aria-label="Basic example">
+        <div class="${this.app.image == 'custom' ? 'btn-group' : ''}" role="group" aria-label="Basic example">
             <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal app-title-back" tabindex="-1">${__html("Back")}</button>
-            <button id="btn-primary" type="button" class="btn btn-outline-primary save-projects d-none" data-bs-dismiss="modal" tabindex="-1">${__html("Continue")}</button>
+            <button id="btn-primary" type="button" class="btn btn-outline-primary btn-continue ${this.app.image == 'custom' ? '' : 'd-none'}" tabindex="-1">${__html("Continue")}</button>
         </div>
         `;
 
@@ -87,18 +94,23 @@ export class AppCreateImage {
 
             let i = e.currentTarget.dataset.i;
 
-            // this.apps[i].actions = this.actions;
-
             let slug = this.app.slug;
+            let image_id = this.apps[i].id;
 
             this.app = { ...this.app, ...this.apps[i] };
 
             this.app.slug = slug;
             this.app.actions = this.actions;
+            this.app.image_id = image_id;
 
-            // console.log(this.app);
+            new AppCreateCluster(this.app);
+        });
 
-            // console.log(this.app);
+        onClick(".btn-continue", e => {
+
+            e.preventDefault();
+
+            this.app.actions = this.actions;
 
             new AppCreateCluster(this.app);
         });
@@ -109,6 +121,8 @@ export class AppCreateImage {
     loadImages() {
 
         let self = this;
+
+        if (!this.app.image) { this.loadEmptyImage(); return; }
 
         const appsPath = path.join(__dirname, "..", "templates", "apps", this.app.image);
         const folders = fs.readdirSync(appsPath).filter(folder => {
@@ -145,6 +159,11 @@ export class AppCreateImage {
             return obj;
 
         }).filter(app => app !== null);
+    }
+
+    loadEmptyImage() {
+
+
     }
 
     renderDockerfile() {

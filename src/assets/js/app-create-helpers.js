@@ -3,8 +3,10 @@
 import global from './global.js'
 import { __html, toast, getDefaultAppPath, getKenzapSettings, cacheSettings, consoleUI, log } from './helpers.js'
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_ssh_script, run_script } from './dev-tools.js'
-import fs from 'fs';
+import { https, v2 } from './app-registry-helpers.js'
+import { Endpoints } from './app-endpoints.js'
+import { run_script } from './dev-tools.js'
+import fs, { unlink } from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import { connected } from 'process';
@@ -251,19 +253,22 @@ export function createLocalApp(app, cb) {
         console.log(`Kubeconfig file not found at ${kubeconfigSource}`);
     }
 
+    // clean up prev files
+    cleanUpFiles(app);
+
     // check if app.yaml is missing
     if (!fs.existsSync(path.join(app.path, "devspace.yaml"))) {
 
-        let app = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "devspace.yaml"), 'utf8');
-        fs.writeFileSync(path.join(app.path, 'devspace.yaml'), app);
+        let devspaceContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "devspace.yaml"), 'utf8');
+        fs.writeFileSync(path.join(app.path, 'devspace.yaml'), devspaceContent);
         applyActions(app, path.join(app.path, "devspace.yaml"));
     }
 
     // check if app.yaml is missing
     if (!fs.existsSync(path.join(app.path, "app.yaml"))) {
 
-        let app = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "app.yaml"), 'utf8');
-        fs.writeFileSync(path.join(app.path, 'app.yaml'), app);
+        let appContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "app.yaml"), 'utf8');
+        fs.writeFileSync(path.join(app.path, 'app.yaml'), appContent);
         log("applying rules for app.yaml");
         applyActions(app, path.join(app.path, 'app.yaml'));
     }
@@ -275,13 +280,13 @@ export function createLocalApp(app, cb) {
     if (!fs.existsSync(endpointsPath)) {
 
         // create endpoints.yaml
-        let endpoints = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "endpoints.yaml"), 'utf8');
-        fs.writeFileSync(endpointsPath, endpoints);
+        let endpointsContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "endpoints.yaml"), 'utf8');
+        fs.writeFileSync(endpointsPath, endpointsContent);
         applyActions(app, endpointsPath);
     }
 
     // copy app template files
-    const templateFolder = path.join(__dirname, "..", "templates", "apps", app.image, app.id);
+    const templateFolder = path.join(__dirname, "..", "templates", "apps", app.image, app.image_id);
     const filesToExclude = ["manifest.json", ".DS_Store"];
     if (fs.existsSync(templateFolder)) {
 
@@ -328,12 +333,12 @@ export function createLocalApp(app, cb) {
     logModal("Creating application endpoints");
 
     // update endpoints.yaml
-    let endpoints = fs.readFileSync(endpointsPath, 'utf8');
+    let endpointsContent = fs.readFileSync(endpointsPath, 'utf8');
     let template_endpoint = app.slug + ".endpoint-" + settings.id.toLowerCase() + ".kenzap.cloud";
-    endpoints = endpoints.replace(/template_namespace/g, app.slug);
-    endpoints = endpoints.replace(/template_slug/g, app.slug);
-    endpoints = endpoints.replace(/template_endpoint/g, template_endpoint);
-    fs.writeFileSync(endpointsPath, endpoints);
+    endpointsContent = endpointsContent.replace(/template_namespace/g, app.slug);
+    endpointsContent = endpointsContent.replace(/template_slug/g, app.slug);
+    endpointsContent = endpointsContent.replace(/template_endpoint/g, template_endpoint);
+    fs.writeFileSync(endpointsPath, endpointsContent);
 
     // hideLoader();
 
@@ -345,19 +350,15 @@ export function createLocalApp(app, cb) {
 
     log(`App created in ${app.path} with ${app.slug} namespace and ${app.id} app id`);
 
-    // global.state.app.id = app.slug;
-    // global.state.app.title = app.title;
-    // global.state.app.clusters = app.clusters;
-    // global.state.app.project = app.project;
-    // global.state.app.image = app.image;
-
     // apply endpoints
     setTimeout(() => {
 
         // publish endpoints to DNS
-        this.endpoints = new Endpoints(global);
-        this.endpoints.init();
-        this.endpoints.createEndpoints();
+        let endpoints = new Endpoints(app);
+        endpoints.init();
+        endpoints.createEndpoints();
+
+        logModal("");
 
         run_script('cd ' + app.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster.id + '.yaml', [], () => { });
     }, 2000);
@@ -365,10 +366,34 @@ export function createLocalApp(app, cb) {
     // clean up
     setTimeout(() => { run_script(`cd ${app.path}; rm -Rf ${app.slug}.crt; rm -Rf ${app.slug}.key; rm -Rf ${app.slug}.csr; rm -Rf ${app.slug}-user-roles.yaml; rm -Rf ${app.slug}-user-role-binding.yaml; rm -Rf ${app.slug}-csr.yaml; rm -Rf ${app.slug}-network-policy.yaml;`, [], () => { consoleUI('Cleaning up'); }); }, 20000);
 
-    logModal("");
-
     // load app settings page
-    setTimeout(() => { cb("error", app.slug); }, 2000);
+    setTimeout((cb) => { cb("success", app); }, 2000, cb);
+}
+
+/**
+ * Cleans up specific YAML configuration files from the application's directory.
+ * 
+ * This function checks for the existence of the following files in the application's
+ * path and deletes them if they are found:
+ * - `devspace.yaml`
+ * - `app.yaml`
+ * - `endpoints.yaml`
+ */
+export function cleanUpFiles(app) {
+
+    console.log("Cleaning up devspace.yaml", path.join(app.path, "devspace.yaml"));
+
+    if (fs.existsSync(path.join(app.path, "devspace.yaml"))) {
+        fs.unlinkSync(path.join(app.path, "devspace.yaml"));
+    }
+
+    if (fs.existsSync(path.join(app.path, "app.yaml"))) {
+        fs.unlinkSync(path.join(app.path, "app.yaml"));
+    }
+
+    if (!fs.existsSync(path.join(app.path, "endpoints.yaml"))) {
+        fs.unlinkSync(path.join(app.path, "endpoints.yaml"));
+    }
 }
 
 /**
@@ -389,11 +414,15 @@ export function createLocalApp(app, cb) {
  */
 export function applyActions(app, targetPath) {
 
+    log("applying actions to: ", targetPath);
+
     // read file
     let fileContent = fs.readFileSync(targetPath, 'utf8');
 
     // apply manifest.json rules
-    fileContent = app.actions.apply("firstView", fileContent);
+    if (app.actions) fileContent = app.actions.apply("firstView", fileContent);
+
+    log("replacing template_registry_url with: ", https(v2(app.registry.domain)));
 
     // CI/CD settings
     fileContent = fileContent.replace(/template_registry_url/g, `${https(v2(app.registry.domain))}`);

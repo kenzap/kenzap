@@ -1,6 +1,6 @@
 
 import global from "./global.js"
-import { __html, attr, onClick, getDefaultAppPath, toast, getToken, getKenzapSettings, saveKenzapSettings, onKeyUp, onChange, log } from './helpers.js'
+import { __html, attr, onClick, simulateClick, log } from './helpers.js'
 import { AppCreateTemplate } from './app-create-template.js'
 import { AppCreateImage } from './app-create-image.js'
 import slugify from 'slugify'

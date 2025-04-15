@@ -71,9 +71,9 @@ export class AppCreateTemplate {
 
         // footer buttons
         document.querySelector(".modal-footer").innerHTML = `
-        <div class="btn-group-" role="group" aria-label="Basic example">
+        <div class="btn-group" role="group" aria-label="Basic example">
             <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Cancel")}</button>
-            <button id="btn-primary" type="button" class="btn btn-outline-primary save-projects d-none" data-bs-dismiss="modal" tabindex="-1">${__html("Create")}</button>
+            <button id="btn-primary" type="button" class="btn btn-outline-primary btn-continue d-none-" tabindex="-1">${__html("Skip template")}</button>
         </div>
         `;
 
@@ -94,6 +94,20 @@ export class AppCreateTemplate {
 
             this.app = appList[i];
 
+            this.app.title = title;
+            this.app.ui = ui;
+
+            new AppCreateTitle(this.app);
+        });
+
+        // next action listener
+        onClick(".btn-continue", e => {
+
+            let title = this.app.title;
+            let ui = this.app.ui;
+
+            this.app.image = "custom";
+            this.app.image_id = "1";
             this.app.title = title;
             this.app.ui = ui;
 

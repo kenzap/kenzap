@@ -1,5 +1,4 @@
 
-import global from "./global.js"
 import { clipboard } from 'electron'
 import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, saveKenzapSettings, API, log } from './helpers.js'
 import yaml from 'js-yaml';
@@ -12,14 +11,12 @@ export class Endpoints {
     constructor(app) {
 
         this.selector = "app-endpoints";
-        // this.global = global;
         this.app = app;
         this.usedPorts = [];
 
-        console.log("Endpoints", this.app);
+        // console.log("Endpoints", this.app);
 
         if (!this.app) this.app = { env: [] };
-        // if (!this.app.endpoints) this.endpoints = { env: [] };
         if (!this.annotations) this.annotations = this.app.annotations;
     }
 
@@ -103,8 +100,6 @@ export class Endpoints {
 
                     const endpoints = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'endpoints.yaml'), 'utf8'));
 
-                    global.state.app.endpointsFile = endpoints;
-
                     // log("render endpoints", endpoints);
 
                     // no records found
@@ -120,7 +115,7 @@ export class Endpoints {
 
                                 this.usedPorts.push(rule.http.paths[0].backend.service.port.number);
 
-                                let e = { "host": rule.host, "port": rule.http.paths[0].backend.service.port.number, "name": rule.http.paths[0].backend.service.name, "slug": global.state.app.slug, "private": rule.http.paths[0].backend.service.name + "." + endpoint.metadata.namespace, "active_public": 1, "active_private": 1 };
+                                let e = { "host": rule.host, "port": rule.http.paths[0].backend.service.port.number, "name": rule.http.paths[0].backend.service.name, "slug": this.app.slug, "private": rule.http.paths[0].backend.service.name + "." + endpoint.metadata.namespace, "active_public": 1, "active_private": 1 };
 
                                 this.endpoints.push(e);
                             });
@@ -128,7 +123,7 @@ export class Endpoints {
 
                         if (endpoint.kind == "Service") {
 
-                            let service = { "host": "", "port": endpoint.spec.ports[0].port, "name": endpoint.metadata.name, "slug": global.state.app.slug, "private": endpoint.metadata.name + "." + endpoint.metadata.namespace, "selector_app": endpoint.spec.selector.app, "active_public": 0, "active_private": 1 };
+                            let service = { "host": "", "port": endpoint.spec.ports[0].port, "name": endpoint.metadata.name, "slug": this.app.slug, "private": endpoint.metadata.name + "." + endpoint.metadata.namespace, "selector_app": endpoint.spec.selector.app, "active_public": 0, "active_private": 1 };
 
                             this.services.push(service);
                         }
@@ -333,9 +328,7 @@ export class Endpoints {
 
             onKeyUp("#cluster-name", e => { if (action != 'edit') nameType(e); });
             onChange("#cluster-name", e => { if (action != 'edit') nameType(e); });
-
             onChange("#active_private", e => { if (!e.currentTarget.checked) { document.querySelector("#active_public").checked = false; document.querySelector(".public-cnt").style = "opacity:0.4;"; document.querySelector("#active_public").setAttribute('disabled', true); } else { document.querySelector("#active_public").removeAttribute('disabled'); document.querySelector(".public-cnt").style = "opacity:1;"; } });
-
             onClick(".add-endpoint-btn", e => {
 
                 let allow = true;

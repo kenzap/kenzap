@@ -60,6 +60,7 @@ export class Settings {
 
         // get app data
         this.app = this.apps.filter(app => app.id == id)[0];
+        this.app.ui = "";
         global.state.app = this.app;
 
         log("App settings", this.app);

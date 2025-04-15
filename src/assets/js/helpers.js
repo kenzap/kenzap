@@ -15,7 +15,7 @@ export const kenzapdir = path.join(process.platform === "win32" ? process.env.HO
  */
 export function API() {
 
-    return "https://api.kenzap-apps.app.kenzap.cloud/v2/";
+    return "https://api.kenzap-apps.kenzap.cloud/v2/";
 }
 
 /**

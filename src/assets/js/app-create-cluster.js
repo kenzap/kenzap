@@ -1,16 +1,12 @@
 
 import global from "./global.js"
-import { __html, attr, onClick, kenzapdir, getDefaultAppPath, toast, getToken, getKenzapSettings } from './helpers.js'
+import { __html, attr, onClick, kenzapdir, getDefaultAppPath, toast, simulateClick, getKenzapSettings } from './helpers.js'
 import { AppCreateImage } from './app-create-image.js'
 import { AppClusterPicker } from './app-cluster-picker.js'
 import { getAppRegistry } from './app-registry-helpers.js'
 import { provisionClusterApp } from './app-create-helpers.js'
-import { on } from "events"
 import fs from "fs"
 import * as path from 'path';
-import slugify from 'slugify'
-import { console } from "inspector"
-import { Actions } from "./app-actions.js"
 import { Settings } from '../../../src/renderer/app-settings.js'
 
 /**
@@ -32,7 +28,7 @@ export class AppCreateCluster {
         this.view();
 
         // preload app registry for app deployment
-        getAppRegistry(this.app, (registry) => {
+        if (!this.app.registry) getAppRegistry(this.app, (registry) => {
 
             this.app.registry = registry;
         });
@@ -61,6 +57,7 @@ export class AppCreateCluster {
 
         // footer buttons
         document.querySelector(".modal-footer").innerHTML = `
+        <button id="btn-close" type="button" class="btn btn-outline-dark d-none close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Close")}</button>
         <div class="btn-group" role="group" aria-label="Basic example">
             <button id="btn-middle" type="button" class="btn btn-outline-dark app-picker-back" tabindex="-1">${__html("Back")}</button>
             <button id="btn-primary" type="button" class="btn btn-outline-primary app-picker-next btn-app-create" tabindex="-1">${__html("Continue")}</button>
@@ -83,14 +80,12 @@ export class AppCreateCluster {
             this.app.id = this.app.slug;
             this.app.description = "";
             this.app.keywords = "";
+            this.app.ui = "";
             this.app.new = true;
             this.app.status = "0";
             this.app.project = global.state.project || "";
             this.app.path = path.join(kenzapdir, this.app.slug);
             this.app.clusters = this.appClusterPicker.get();
-            // this.app.actions = new Actions(this.app)
-
-            console.log(this.app);
 
             // validate data
             if (!getDefaultAppPath()) { alert(__html('Application path can not be created.')); return; }
@@ -105,13 +100,12 @@ export class AppCreateCluster {
             if (!fs.existsSync(this.app.path)) { fs.mkdirSync(this.app.path); }
 
             // create app in cluster
-            provisionClusterApp(this.app, () => {
+            provisionClusterApp(this.app, (msg, app) => {
 
-                // close modal
                 simulateClick(document.querySelector(".close-modal"));
 
                 // Close the modal
-                new Settings(this.app.id);
+                new Settings(app.id);
             });
         });
 
