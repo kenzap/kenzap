@@ -32,8 +32,6 @@ export class ClusterList {
         global.state.ui = true;
         global.state.currentApp = "";
         global.state.project = "";
-        global.state.dev = {};
-
         global.state.refreshClusters = () => { console.log("refreshClusters"); this.init(); }
 
         if (!global.clusterStatusTimeout) { clearInterval(global.clusterStatusTimeout) }

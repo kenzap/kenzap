@@ -2,16 +2,16 @@
 import global from "./global.js"
 import { shell } from 'electron' // deconstructing assignment
 import { __html, attr, onClick, simulateClick, getSetting, toast, showLoader, hideLoader, parseError, log } from './helpers.js'
+import { appList } from "../../renderer/app-list.js"
+import { getAppKubeconfig } from './app-status-helpers.js'
+import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
+import { Client as ssh } from 'ssh2';
+import { timeStamp } from "console"
 import child_process from "child_process"
 import terminate from "terminate"
 import fs from "fs"
 import yaml from 'js-yaml';
-import { appList } from "../../renderer/app-list.js"
-import { getAppKubeconfig } from './app-status-helpers.js'
 import * as path from 'path';
-import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { Client as ssh } from 'ssh2';
-import { timeStamp } from "console"
 
 export class DevTools {
 
@@ -23,13 +23,32 @@ export class DevTools {
     listeners() {
 
         // publish app
-        onClick('.app-publish', e => {
+        onClick('.app-deploy', e => {
 
             if (document.querySelector(".settings")) { simulateClick(document.querySelector('.app-save')); this.global.runDeploy = true; return; }
 
             e.preventDefault();
 
-            if (confirm(__html('Publish app?'))) {
+            let msg = __html('Publish app?');
+
+            // check last deploy activity
+            if (global.state.last_activity && (Date.now() - global.state.last_activity) > 1000 * 10) global.state.loading = false;
+
+            // still loading
+            if (global.state.loading) {
+
+                msg = __html('Reset publishing?');
+
+                if (confirm(msg)) {
+
+                    stop_dev_process(e.currentTarget.dataset.id, (id) => { });
+                }
+
+                return;
+            }
+
+            // confirm deploy
+            if (confirm(msg)) {
 
                 checkAppClusterState(e.currentTarget.dataset.id);
             }
@@ -74,6 +93,102 @@ export class DevTools {
     init() {
 
         this.listeners();
+    }
+}
+
+export function toggleDepIconState(id) {
+
+    log(`toggleDepIconState`);
+
+    if (document.querySelector('.app-publish[data-id="' + id + '"]')) document.querySelector('.app-publish[data-id="' + id + '"]').classList.remove('d-none');
+    if (document.querySelector('.app-stop-publish[data-id="' + id + '"]')) document.querySelector('.app-stop-publish[data-id="' + id + '"]').classList.add('d-none');
+    if (document.querySelector('.dev-badge[data-id="' + id + '"]')) document.querySelector('.dev-badge[data-id="' + id + '"]').parentElement.innerHTML = `<div class="badge dev-badge bg-primary fw-light po" data-id="${id}"><div class="d-flex align-items-center">${__html('Published')}</div></div>`;
+    if (document.querySelector('.app-list-publish[data-id="' + id + '"]')) document.querySelector('.app-list-publish[data-id="' + id + '"]').innerHTML = `<div class="badge dev-badge bg-primary fw-light po" data-id="${id}"><div class="d-flex align-items-center">${__html('Published')}</div></div>`;
+
+    if (global.state.pub[id].proc) {
+
+        const pid = global.state.pub[id].proc.pid;
+
+        log(`toggleDepIconState: Checking process with PID ${pid}...`);
+
+        try {
+            // Check if the process exists
+            process.kill(pid, 0);
+
+            log(`toggleDepIconState: Process with PID ${pid} is running.`);
+
+            if (document.querySelector('.app-publish[data-id="' + id + '"]')) document.querySelector('.app-publish[data-id="' + id + '"]').classList.add('d-none');
+            if (document.querySelector('.app-stop-publish[data-id="' + id + '"]')) document.querySelector('.app-stop-publish[data-id="' + id + '"]').classList.remove('d-none');
+            if (document.querySelector('.dev-badge[data-id="' + id + '"]')) document.querySelector('.dev-badge[data-id="' + id + '"]').parentElement.innerHTML = `<div class="badge dev-badge bg-danger fw-light po" data-id="${id}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ${__html('Publishing')}</div></div>`;
+            if (document.querySelector('.app-list-publish[data-id="' + id + '"]')) document.querySelector('.app-list-publish[data-id="' + id + '"]').innerHTML = `<div class="badge dev-badge bg-danger fw-light po" data-id="${id}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ${__html('Publishing')}</div></div>`;
+
+        } catch (error) {
+            if (error.code === 'ESRCH') {
+                log(`toggleDepIconState: Process with PID ${pid} is not running.`);
+            } else {
+                log(`Error checking process with PID ${pid}:`, error);
+            }
+        }
+    }
+}
+
+/**
+ * Stops a development process by its ID and executes a callback upon completion.
+ *
+ * @param {string} id - The identifier of the development process to stop.
+ * @param {Function} [cb] - Optional callback function to execute after the process is stopped.
+ *                           The callback receives the process ID as an argument.
+ *
+ * @throws {Error} Throws an error if there is an issue checking or terminating the process.
+ *
+ * @example
+ * toggleDepIconState('process1', (id) => {
+ *     console.log(`Process ${id} has been stopped.`);
+ * });
+ */
+export function stop_dev_process(id) {
+
+    if (global.state.pub[id].proc) {
+
+        const pid = global.state.pub[id].proc.pid;
+
+        try {
+            process.kill(pid, 0); // Check if the process exists
+
+            toast("toggleDepIconState: Reseting process " + pid);
+
+            terminate(pid, (err) => {
+                if (err) {
+                    log('toggleDepIconState: Failed to terminate child process:', err);
+                } else {
+                    log('toggleDepIconState: Child process terminated successfully');
+
+                    document.querySelector('.console-output').innerHTML += '<b style="color:#f75fb4;">' + __html('Publishing canceled') + '</b>';
+                }
+
+                global.state.pub[id].proc = null;
+
+                global.state.loading = false;
+
+                toggleDepIconState(id);
+
+                // if (typeof cb === 'function') cb(id);
+            });
+        } catch (error) {
+            if (error.code === 'ESRCH') {
+                log('toggleDepIconState: Process does not exist:', pid);
+            } else {
+                log('toggleDepIconState: Error checking process:', error);
+            }
+
+            global.state.pub[id].proc = null;
+
+            global.state.loading = false;
+
+            toggleDepIconState(id);
+
+            // if (typeof cb === 'function') cb(id);
+        }
     }
 }
 
@@ -275,15 +390,13 @@ export function checkAppClusterState(id) {
         }
     }
 
-    // still loading
-    if (global.state.loading) return false;
-
     // show loading
     showLoader();
 
     // block UI buttons
     global.state.loading = true;
 
+    // publishing
     toast(__html('Publishing'));
 
     // check if config files exist
@@ -389,7 +502,7 @@ export function deploy(id) {
     if (global.state.dev[id]) if (global.state.dev[id].status == "sync") devApp(id, 'stop');
 
     // set dev deployment defaults
-    if (!global.state.dev[id]) global.state.dev[id] = { running: true, timeStamp: Date.now() };
+    if (!global.state.pub[id]) global.state.pub[id] = { running: true, timeStamp: Date.now() };
 
     let cache = getSetting(id);
 
@@ -401,11 +514,11 @@ export function deploy(id) {
 
     if (!kubeconfig) return;
 
-    global.state.dev[id].edgePending = true;
+    global.state.pub[id].edgePending = true;
 
-    global.state.dev[id].path = [];
+    global.state.pub[id].path = [];
 
-    if (!global.state.dev[id].iteration) global.state.dev[id].iteration = 0;
+    if (!global.state.pub[id].iteration) global.state.pub[id].iteration = 0;
 
     document.querySelector(".edge-status[data-id='" + id + "']").classList.add("pending"); document.querySelector(".edge-status[data-id='" + id + "']").classList.remove("d-none");
 
@@ -417,7 +530,7 @@ export function deploy(id) {
 
             if (fs.existsSync(devspaceFilePath)) {
 
-                global.state.dev[id].path.push(devspaceFilePath);
+                global.state.pub[id].path.push(devspaceFilePath);
             }
         });
     }
@@ -429,29 +542,32 @@ export function deployRecursive(id, cache, kubeconfig) {
 
     let devspace = getDevspacePath();
 
-    if (global.state.dev[id].iteration >= global.state.dev[id].path.length) { global.state.loading = false; return; }
+    if (global.state.pub[id].iteration >= global.state.pub[id].path.length) { global.state.loading = false; global.state.pub[id].proc = null; toggleDepIconState(id); return; }
 
     try {
 
-        let devspaceFile = global.state.dev[id].path[global.state.dev[id].iteration];
-        let dev = yaml.loadAll(fs.readFileSync(global.state.dev[id].path[global.state.dev[id].iteration], 'utf8'));
+        let devspaceFile = global.state.pub[id].path[global.state.pub[id].iteration];
+        let pub = yaml.loadAll(fs.readFileSync(global.state.pub[id].path[global.state.pub[id].iteration], 'utf8'));
 
-        if (dev[0]) dev = dev[0];
+        if (pub[0]) pub = pub[0];
 
         log('deploy devspaceFile', devspaceFile);
 
         log(devspace + ' deploy -n ' + id + ' --config=' + devspaceFile + ' --kubeconfig=' + kubeconfig + ' --no-warn -b');
 
-        global.state.dev[id].proc = run_script(
-            'cd ' + cache.path + ' && docker login -u ' + dev.pullSecrets.pullsecret.username +
-            ' -p ' + dev.pullSecrets.pullsecret.password + ' ' + dev.pullSecrets.pullsecret.registry +
+        global.state.pub[id].proc = run_script(
+            'cd ' + cache.path + ' && docker login -u ' + pub.pullSecrets.pullsecret.username +
+            ' -p ' + pub.pullSecrets.pullsecret.password + ' ' + pub.pullSecrets.pullsecret.registry +
             ' && ' + devspace + ' deploy -n ' + id + ' --config=' + devspaceFile + ' --kubeconfig=' + kubeconfig + ' -b',
             [],
             cb,
             1,
             (error) => { log('Deploy E: ', error.toString()); },
-            (output) => { if (output.toString().includes("Successfully deployed")) { log('Deploy O:', output.toString()); global.state.dev[id].iteration += 1; deployRecursive(id, cache, kubeconfig); } }
+            (output) => { global.state.last_activity = Date.now(); if (output.toString().includes("Successfully deployed")) { log('Deploy O:', output.toString()); global.state.pub[id].iteration += 1; deployRecursive(id, cache, kubeconfig); } }
         );
+
+        // update UI
+        toggleDepIconState(id);
 
     } catch (err) {
         log(err);
@@ -569,7 +685,6 @@ export function syncDeployments(data) {
 
     // if(global.state.dtc_updated) 
     global.state.dev[id].proc = run_script('cd ' + cache.path + ' && docker login -u ' + global.state.app.registry.user + ' -p ' + global.state.app.registry.pass + ' ' + global.state.app.registry.domain + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + data.dtc[0] + '.yaml; kubectl get secret letsencrypt-prod -o yaml --kubeconfig=kubeconfig-' + data.dtc[0] + '.yaml > letsencrypt-prod.yaml;', [], cb);
-
 }
 
 /**
@@ -601,6 +716,7 @@ export function run_script(command, args, callback, verbose = 1, callback_error,
         if (verbose < 1) return;
 
         log("run_script error");
+
         log(error);
     });
 
@@ -636,6 +752,7 @@ export function run_script(command, args, callback, verbose = 1, callback_error,
         // mainWindow.webContents.send('mainprocess-response', data);
         // Here is the output from the command
         log("script child stderr data");
+
         log(data);
 
         data = normalizeStyle(data);

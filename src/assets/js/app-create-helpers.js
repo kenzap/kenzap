@@ -391,7 +391,7 @@ export function cleanUpFiles(app) {
         fs.unlinkSync(path.join(app.path, "app.yaml"));
     }
 
-    if (!fs.existsSync(path.join(app.path, "endpoints.yaml"))) {
+    if (fs.existsSync(path.join(app.path, "endpoints.yaml"))) {
         fs.unlinkSync(path.join(app.path, "endpoints.yaml"));
     }
 }

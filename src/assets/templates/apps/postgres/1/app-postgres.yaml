@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: template_slug
+  namespace: template_namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: template_slug
+  template:
+    metadata:
+      labels:
+        app: template_slug
+    spec:
+      containers:
+        - name: template_slug
+          image: template_registry
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: template_slug-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: template_slug-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: template_slug-storage
+          persistentVolumeClaim:
+            claimName: template_slug-pvc
