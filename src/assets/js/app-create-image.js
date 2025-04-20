@@ -65,10 +65,10 @@ export class AppCreateImage {
                     </div>
                     <p class="form-text">${__html('Edit docker file below for ' + (app.name || 'this app') + '.')}</p>
                     ${app.dockerfiles.map(dockerfile => `
-                    <div class="docker-editor mb-3">
-                        <label for="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" class="form-label d-none">${__html(dockerfile.name)}</label>
-                        <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" data-id="${attr(app.id)}" data-i="${attr(i)}" data-name="${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${attr(dockerfile.content)}</textarea>
-                    </div>
+                        <div class="docker-editor mb-3">
+                            <label for="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" class="form-label d-none">${__html(dockerfile.name)}</label>
+                            <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" data-id="${attr(app.id)}" data-i="${attr(i)}" data-name="${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${attr(dockerfile.content)}</textarea>
+                        </div>
                     `).join('')}
                     <div class="clearfix"></div>
                 </div>

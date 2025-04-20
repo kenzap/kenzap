@@ -14,7 +14,7 @@ import { run_script } from './dev-tools.js'
 import { Client as ssh } from 'ssh2';
 import * as os from 'os';
 import { set } from "ace-builds/src-noconflict/ace.js"
-// const os = require('os');
+const { exec } = require('child_process');
 
 /**
  * Verify if the following dependencies are working on the host machiene
@@ -29,24 +29,27 @@ import { set } from "ace-builds/src-noconflict/ace.js"
  */
 export function checkEnvironment() {
 
-    const platform = os.platform();
+    log('Arch OS: ' + os.arch() + ' OS: ' + os.platform());
 
     if (!global.state.installation) {
-        global.state.installation = { attempts: { kubectl: 0, devspace: 0, docker: 0 } };
+        global.state.installation = { attempts: { kubectl: 0, devspace: 0, docker: 0, minikube: 0, total: 0 } };
     }
 
     let status = { c: 0, allow: true, installing: false, svc: [] };
     let cb = () => { };
 
     const callback_response = (data) => {
+
+        if (!data) return;
+
         data = data.toString();
         status.c++;
         status.installing = false;
         status.allow = true;
 
-        log("callback response os: " + platform);
+        // log("callback response os: " + os.platform());
         log(data)
-        log(status)
+        // log(status)
 
         if (data.includes('can not create home directory')) {
             status.allow = false;
@@ -65,7 +68,7 @@ export function checkEnvironment() {
 
             if (global.state.installation.attempts.kubectl < 3) {
                 status.installing = true;
-                installKubectl(platform, cb, callback_response);
+                installKubectl(cb, callback_response);
             }
 
             if (global.state.installation.attempts.kubectl >= 3) {
@@ -80,10 +83,25 @@ export function checkEnvironment() {
 
             if (global.state.installation.attempts.devspace < 3) {
                 status.installing = true;
-                installDevSpace(platform, cb, callback_response);
+                installDevSpace(cb, callback_response);
             }
 
             if (global.state.installation.attempts.devspace >= 3) {
+                status.allow = false;
+            }
+        }
+
+        if (data.includes('minikube: command not found') || data.includes('minikube: not found') || data.includes('not found: minikube') || data.includes('minikube not found') || data.includes('command -v minikube')) {
+            status.svc.push({ name: "Minikube", link: "https://minikube.sigs.k8s.io/docs/start/" });
+            global.state.installation.attempts.minikube++;
+            log('installing minikube');
+
+            if (global.state.installation.attempts.minikube < 3) {
+                status.installing = true;
+                installMinikube(cb, callback_response);
+            }
+
+            if (global.state.installation.attempts.minikube >= 3) {
                 status.allow = false;
             }
         }
@@ -98,12 +116,14 @@ export function checkEnvironment() {
         if (!status.allow && !status.installing) {
 
             showWarning(status);
-
-            // setTimeout(() => { checkEnvironment(); }, 10000);
         }
 
         if (status.allow && !status.installing) {
-            new AppList();
+
+            if (global.state.timeout) { clearTimeout(global.state.timeout); }
+            global.state.timeout = setTimeout(() => {
+                new AppList();
+            }, 3000);
         }
 
         onClick(".open-dep-link", e => {
@@ -132,30 +152,59 @@ export function checkEnvironment() {
     }
 
     run_script('docker stats --no-stream', [], cb, 0, callback_response);
-    run_script('command -v kubectl', [], cb, 0, callback_response);
-    run_script('command -v devspace', [], cb, 0, callback_response);
+
+    log("mode : " + process.env.NODE_ENV);
+
+    // TODO: check production
+    // if (process.env.NODE_ENV === 'development') {
+    //     log('running in development mode');
+    //     exec('which kubectl', (error, stdout, stderr) => callback_response(error));
+    //     exec('which devspace', (error, stdout, stderr) => callback_response(error));
+    //     exec('which minikube', (error, stdout, stderr) => callback_response(error));
+    // } else {
+    // log('running in production mode');
+    exec('command -v kubectl', (error, stdout, stderr) => callback_response(error));
+    exec('command -v devspace', (error, stdout, stderr) => callback_response(error));
+    exec('command -v minikube', (error, stdout, stderr) => callback_response(error));
+    // }
 }
 
-function installKubectl(platform, cb, callback_response) {
-    if (platform === 'win32') {
+function installKubectl(cb, callback_response) {
+    if (os.platform() === 'win32') {
         log('choco install kubernetes-cli');
         run_script('choco install kubernetes-cli', [], cb, 0, callback_response);
-    } else if (platform === 'darwin') {
+    } else if (os.platform() === 'darwin') {
         log('brew install kubectl');
         run_script('brew install kubectl', [], cb, 0, callback_response);
-    } else if (platform === 'linux') {
+    } else if (os.platform() === 'linux') {
         log('kubectl install linux');
         run_script('curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl', [], cb, 0, callback_response);
     }
 }
 
-function installDevSpace(platform, cb, callback_response) {
-    if (platform === 'win32') {
+function installDevSpace(cb, callback_response) {
+    if (os.platform() === 'win32') {
         run_script('choco install devspace', [], cb, 0, callback_response);
-    } else if (platform === 'darwin') {
+    } else if (os.platform() === 'darwin') {
         run_script('brew install devspace', [], cb, 0, callback_response);
-    } else if (platform === 'linux') {
-        run_script('curl -s -L "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-amd64" -o devspace && chmod +x devspace && sudo mv devspace /usr/local/bin', [], cb, 0, callback_response);
+    } else if (os.platform() === 'linux' && os.arch() === 'x64') {
+        run_script('curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-amd64" && sudo install -c -m 0755 devspace /usr/local/bin', [], cb, 0, callback_response);
+    } else if (os.platform() === 'linux' && os.arch() === 'arm64') {
+        run_script('curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-arm64" && sudo install -c -m 0755 devspace /usr/local/bin', [], cb, 0, callback_response);
+    }
+}
+
+function installMinikube(cb, callback_response) {
+    log('installMinikube on ' + os.platform() + ' ' + os.arch());
+    if (os.platform() === 'win32') {
+        exec('choco install minikube', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
+    } else if (os.platform() === 'darwin') {
+        log('brew install minikube');
+        exec('brew install minikube', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
+    } else if (os.platform() === 'linux' && os.arch() === 'x64') {
+        exec('curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64 && sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
+    } else if (os.platform() === 'linux' && os.arch() === 'arm64') {
+        exec('curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-arm64 && sudo install minikube-linux-arm64 /usr/local/bin/minikube && rm minikube-linux-arm64', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
     }
 }
 

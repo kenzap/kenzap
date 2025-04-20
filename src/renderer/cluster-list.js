@@ -12,6 +12,7 @@ import { AppList } from './app-list.js'
 import { ClusterStats } from './cluster-stats.js'
 import { Footer } from '../assets/js/app-footer.js'
 import { ClusterAdd } from '../assets/js/cluster-add.js'
+import { ClusterLocalAdd } from '../assets/js/cluster-local-add.js'
 import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
 import "../assets/scss/app.css"
 
@@ -105,6 +106,30 @@ export class ClusterList {
     
                 </div>
                 <div class="d-flex justify-content-between bd-highlight mb-3">
+                    <nav class="bc" aria-label="breadcrumb"></nav>
+                    <div class="d-flex align-items-center">
+                        <div class="dropdown">
+                            <button class="btn btn-primary d-flex align-items-center mt-md-0 mt-2 dropdown-toggle" type="button" id="clusterActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="d-flex" role="status" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2"  viewBox="0 0 16 16">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
+                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"></path>
+                                    </svg>
+                                </span>    
+                                ${__html('Add cluster')}
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="clusterActionsDropdown">
+                            <li>
+                                <a class="dropdown-item cluster-local-create d-none" href="#" data-bs-toggle="modal" data-bs-target=".modal">${__html('Local (free)')}<i class="mdi mdi-monitor"></i></a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item cluster-create" href="#" data-bs-toggle="modal" data-bs-target=".modal">${__html('Production')}</a>
+                            </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between bd-highlight mb-3 d-none">
                     <nav class="bc" aria-label="breadcrumb"></nav>
                     <div class="d-flex align-items-center">
                         <a style="margin-right:16px;" class="preview-link nounderline d-none app-list" target="_blank" href="#">${__html('Apps')}<i class="mdi mdi-monitor"></i></a>
@@ -276,7 +301,7 @@ export class ClusterList {
             downloadKubeconfig(e.currentTarget.dataset.id, null, true);
         });
 
-        // create app
+        // create production cluster
         onClick(".cluster-create", e => {
 
             e.preventDefault();
@@ -286,6 +311,18 @@ export class ClusterList {
             global.state.clusterEditId = null;
 
             global.state.edgeClustersAdd = new ClusterAdd(global);
+        });
+
+        // create local cluster
+        onClick(".cluster-local-create", e => {
+
+            e.preventDefault();
+
+            global.state.cb = (global) => { new ClusterList(global); };
+
+            global.state.clusterEditId = null;
+
+            global.state.edgeClustersAdd = new ClusterLocalAdd(global);
         });
 
         // delete cluster

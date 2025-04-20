@@ -94,7 +94,7 @@ export class ClusterAdd {
                             <div class="my-4 d-flex">
                                 <img src="${ServerDown}" class="img-fluid m-auto" style="max-width: 300px;">
                             </div>
-                            <p class="form-text">${__html('No clusters available. Please create one.')}</p>
+                            <p class="form-text">${__html('Please add one or multiple servers to the list.')}</p>
                         </div>
                     </div>
                 </div>
