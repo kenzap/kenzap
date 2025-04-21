@@ -168,6 +168,14 @@ export function https(domain) {
     return domain;
 }
 
+export function http(domain) {
+
+    if (!domain.startsWith('http')) {
+        return 'http://' + domain;
+    }
+    return domain;
+}
+
 export function v2(domain) {
 
     if (!domain.endsWith('/v2')) {

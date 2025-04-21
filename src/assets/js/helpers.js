@@ -4,7 +4,7 @@ import os from 'os';
 import fs from 'fs';
 
 // version control variable, only one digit after dot, wrong: 1.0.19, 1.10.1
-export const version = "1.0.6";
+export const version = "1.0.7";
 
 // cross platform Kenzap home directory
 export const kenzapdir = path.join(process.platform === "win32" ? process.env.HOMEPATH : process.env.HOME, 'Kenzap');

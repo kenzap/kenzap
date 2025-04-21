@@ -1,7 +1,7 @@
 'use strict';
 
 import global from '../assets/js/global.js'
-import { __html, html, attr, initBreadcrumbs, onClick, hideLoader, getKenzapSettings } from '../assets/js/helpers.js'
+import { __html, html, attr, initBreadcrumbs, onClick, hideLoader, getKenzapSettings, log } from '../assets/js/helpers.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
 import { checkEnvironment } from '../assets/js/dev-environment.js'
 import { AppList } from './app-list.js'
@@ -9,6 +9,7 @@ import { Footer } from '../assets/js/app-footer.js'
 import { ClusterList } from './cluster-list.js'
 import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
 import "../assets/scss/app.css"
+const { exec } = require('child_process');
 
 /** 
  * Cluster class. Inits dashboard of app modules
@@ -37,6 +38,24 @@ export class Home {
     }
 
     init() {
+
+
+        // exec('pkexec /Users/pavellukasenko/Extensions/kenzap/src/assets/templates/sh/minikube-tunnel.sh', (err, stdout, stderr) => {
+        //     if (err) {
+        //         console.error('Error:', stderr);
+        //     } else {
+        //         console.log('Success:', stdout);
+        //     }
+        // });
+
+        // exec(`osascript -e 'do shell script "minikube tunnel" with administrator privileges'`,
+        //     (error, stdout, stderr) => {
+
+        //         if (error) log(error);
+        //         // callback(null, stdout);
+        //     });
+
+        // return;
 
         // global.state.projects = [];
         this.settings = getKenzapSettings();

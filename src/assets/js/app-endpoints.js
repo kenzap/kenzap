@@ -1,10 +1,12 @@
 
 import { clipboard } from 'electron'
 import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, saveKenzapSettings, API, log } from './helpers.js'
+import { http, https } from './app-registry-helpers.js'
 import yaml from 'js-yaml';
 import fs from "fs"
 import { run_script } from './dev-tools.js'
 import * as path from 'path';
+const os = require('os');
 
 export class Endpoints {
 
@@ -167,6 +169,10 @@ export class Endpoints {
 
     struct(i, endpoint) {
 
+        let host = endpoint.host ? endpoint.host : "";
+
+        host = (this.app.clusters[0] == 'local') ? http(host) : https(host);
+
         return `
             <tr>
                 <td style="min-width:200px;">
@@ -182,15 +188,13 @@ export class Endpoints {
                         <div class="ms-2">
                         ${endpoint.active_public ?
                 `
-                            ${attr(endpoint.host) ? "https://" + attr(endpoint.host) : ""}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${attr(endpoint.host) ? "https://" + attr(endpoint.host) : ""}" class="bi bi-copy po mb-1 ms-1 copy-record" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg>
-                            
+                            ${attr(host)}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${attr(host)}" class="bi bi-copy po mb-1 ms-1 copy-record" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg>
                             `
                 :
                 `
-                            ${html(endpoint.name + "." + endpoint.slug + ":" + endpoint.port)} 
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" data-record="${attr(endpoint.name + "." + endpoint.slug + ":" + endpoint.port)}" class="bi bi-copy po mb-1 ms-1 copy-record" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg>
-                            
+                            ${html(host)} 
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" data-record="${attr(host)}" class="bi bi-copy po mb-1 ms-1 copy-record" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg>
                             `
             }
                         </div>
@@ -503,10 +507,12 @@ export class Endpoints {
             },
             spec: {
                 ingressClassName: "nginx",
-                tls: [{ hosts: [], secretName: "letsencrypt-prod" }],
                 rules: []
             }
         };
+
+        // skip certificates for local apps
+        if (this.app.clusters[0] != "local") ingress.spec.tls = [{ hosts: [], secretName: "letsencrypt-prod" }];
 
         let services = [];
 
@@ -540,8 +546,10 @@ export class Endpoints {
 
             if (!service.active_public) return;
 
+            // skip certificates for local apps
+            if (this.app.clusters[0] != "local") ingress.spec.tls[0].hosts.push(service.host);
+
             // generate ingress hosts
-            ingress.spec.tls[0].hosts.push(service.host);
             ingress.spec.rules.push({
                 host: service.host,
                 http: {
@@ -584,6 +592,47 @@ export class Endpoints {
         this.app.clusters.forEach(cluster => {
             run_script(`cd ${cache.path} && kubectl apply -f endpoints.yaml ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], cb);
         });
+
+        // apply changes to /etc/hosts
+        if (this.app.clusters[0] == "local") {
+
+            let hosts = [];
+
+            this.services.forEach(service => {
+
+                if (!service.active_public) return;
+
+                hosts.push(service.host);
+            });
+
+            // add to /etc/hosts
+            const HOSTS_FILE_PATH = '/etc/hosts';
+            function updateHostsFile(hosts) {
+                try {
+                    let hostsFileContent = fs.readFileSync(HOSTS_FILE_PATH, 'utf8');
+                    let newEntries = '';
+
+                    hosts.forEach(host => {
+                        const hostEntry = `127.0.0.1\t${host}`;
+                        if (!hostsFileContent.includes(hostEntry)) {
+                            newEntries += `${hostEntry}\n`;
+                        }
+                    });
+
+                    if (newEntries) {
+                        const script = `
+                            do shell script "echo \\"${(hostsFileContent + newEntries).replace(/"/g, '\\"')}\\"> ${HOSTS_FILE_PATH}" with administrator privileges
+                        `;
+
+                        require('child_process').execSync(`osascript -e '${script}'`);
+                    }
+                } catch (error) {
+                    console.error('Failed to update /etc/hosts file:', error);
+                }
+            }
+
+            updateHostsFile(hosts);
+        }
     }
 
     endpoint() {

@@ -284,9 +284,9 @@ export function devApp(id, cmd) {
 
     let kubeconfig = getAppKubeconfig(app.id);
 
-    if (!kubeconfig && global.state.app.clusters[0] != 'local') return;
+    if (!kubeconfig && app.clusters[0] != 'local') return;
 
-    if (global.state.app.clusters[0] == 'local') kubeconfig = "";
+    if (app.clusters[0] == 'local') kubeconfig = "";
 
     // if (!kubeconfig) return;
 

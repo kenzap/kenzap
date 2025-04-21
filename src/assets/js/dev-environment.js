@@ -166,6 +166,66 @@ export function checkEnvironment() {
     exec('command -v kubectl', (error, stdout, stderr) => callback_response(error));
     exec('command -v devspace', (error, stdout, stderr) => callback_response(error));
     exec('command -v minikube', (error, stdout, stderr) => callback_response(error));
+    exec('minikube status', (error, stdout, stderr) => {
+        if (stdout.includes('host: Running') && stdout.includes('kubelet: Running') && stdout.includes('apiserver: Running')) {
+            log('Minikube is already running.');
+
+            // minikube make sure essential addons are enabled
+            exec('minikube addons list -o json', (error, stdout, stderr) => {
+                // log('addons list: ' + stdout);
+                try {
+                    const addons = JSON.parse(stdout);
+                    const requiredAddons = ['dashboard', 'registry', 'ingress', 'ingress-dns'];
+                    const missingAddons = requiredAddons.filter(addon => addons[addon].Status !== 'enabled');
+                    // console.log(addons);
+                    missingAddons.forEach(addon => {
+                        log(`Enabling addon: ${addon}`);
+                        exec(`minikube addons enable ${addon}`, (error, stdout, stderr) => {
+                            if (error) {
+                                log(`Error enabling addon ${addon}: ${error}`);
+                            } else {
+                                log(`Addon ${addon} enabled successfully.`);
+                            }
+                        });
+                    });
+
+                } catch (parseError) {
+                    log('Error parsing addons list: ' + parseError);
+                }
+            });
+
+        } else {
+            log('Starting Minikube...');
+            exec('minikube start', (err, out, errOut) => {
+                if (err) {
+                    log('Error starting Minikube: ' + errOut);
+                } else {
+                    log('Minikube started successfully.');
+
+                    // start minikube tunnel
+                    exec('pgrep -f "minikube tunnel"', (error, stdout, stderr) => {
+                        if (!stdout) {
+                            log('Starting minikube tunnel...');
+                            // TODO - check for windows and linux
+                            exec(`osascript -e 'do shell script "minikube tunnel" with administrator privileges'`,
+                                (error, stdout, stderr) => {
+                                    log('Minikube out: ' + stdout)
+                                    if (error) {
+                                        log('Error starting minikube tunnel: ' + error);
+                                    } else {
+                                        log('Minikube tunnel started successfully.');
+                                    }
+                                });
+                        } else {
+                            log('Minikube tunnel is already running.');
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+
     // }
 }
 
