@@ -5,7 +5,6 @@ import yaml from 'js-yaml';
 import { run_script, getKubectlPath } from './dev-tools.js'
 import { getAppKubeconfig } from './app-status-helpers.js'
 import { getAppList } from './app-list-helpers.js'
-import child_process from "child_process"
 
 export class AppStatus {
 
@@ -45,9 +44,13 @@ export class AppStatus {
 
             let kubeconfig = getAppKubeconfig(app.id);
 
-            if (!kubeconfig) return;
-
             this.cache = getSetting(app.id);
+
+            if (!this.cache.clusters) return;
+
+            if (!kubeconfig && this.cache.clusters[0] != 'local') return;
+
+            if (this.cache.clusters[0] == 'local') kubeconfig = "";
 
             // when app is not created yet, skip
             if (!this.cache.path) { global.state.dev[app.id].edgeStatus = "d-none"; return; }
@@ -66,7 +69,9 @@ export class AppStatus {
             // console.log('cd '+this.cache.path+' && kubectl get deployments --kubeconfig='+kubeconfig+' -o=yaml');
             let kubectl = getKubectlPath();
 
-            global.state.dev[app.id].proc = run_script('cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' -o=yaml', [], cb, false);
+            if (kubeconfig) global.state.dev[app.id].proc = run_script('cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' -o=yaml', [], cb, false);
+
+            if (!kubeconfig) global.state.dev[app.id].proc = run_script(' kubectl config use-context minikube && cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' -o=yaml', [], cb, false);
 
             global.state.dev[app.id].proc.stdout.on('data', (data) => {
 

@@ -98,7 +98,7 @@ export class DevTools {
 
 export function toggleDepIconState(id) {
 
-    log(`toggleDepIconState`);
+    // log(`toggleDepIconState`);
 
     if (document.querySelector('.app-publish[data-id="' + id + '"]')) document.querySelector('.app-publish[data-id="' + id + '"]').classList.remove('d-none');
     if (document.querySelector('.app-stop-publish[data-id="' + id + '"]')) document.querySelector('.app-stop-publish[data-id="' + id + '"]').classList.add('d-none');
@@ -109,13 +109,13 @@ export function toggleDepIconState(id) {
 
         const pid = global.state.pub[id].proc.pid;
 
-        log(`toggleDepIconState: Checking process with PID ${pid}...`);
+        // log(`toggleDepIconState: Checking process with PID ${pid}...`);
 
         try {
             // Check if the process exists
             process.kill(pid, 0);
 
-            log(`toggleDepIconState: Process with PID ${pid} is running.`);
+            // log(`toggleDepIconState: Process with PID ${pid} is running.`);
 
             if (document.querySelector('.app-publish[data-id="' + id + '"]')) document.querySelector('.app-publish[data-id="' + id + '"]').classList.add('d-none');
             if (document.querySelector('.app-stop-publish[data-id="' + id + '"]')) document.querySelector('.app-stop-publish[data-id="' + id + '"]').classList.remove('d-none');
@@ -284,7 +284,11 @@ export function devApp(id, cmd) {
 
     let kubeconfig = getAppKubeconfig(app.id);
 
-    if (!kubeconfig) return;
+    if (!kubeconfig && global.state.app.clusters[0] != 'local') return;
+
+    if (global.state.app.clusters[0] == 'local') kubeconfig = "";
+
+    // if (!kubeconfig) return;
 
     let devspace = getDevspacePath();
 
@@ -297,7 +301,7 @@ export function devApp(id, cmd) {
 
         let cb = () => {
 
-            log('cd ' + cache.path + ' && ' + devspace + ' sync -n ' + id + ' --config=devspace.yaml --kubeconfig=' + kubeconfig + ' --no-warn')
+            log(`cd ${cache.path} && ${devspace} sync -n ${id} --config=devspace.yaml ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn`)
         }
 
         if (global.state.dev[id].proc) {
@@ -316,7 +320,11 @@ export function devApp(id, cmd) {
         function startDevspaceSync() {
 
             global.state.dev[id].status = "sync";
-            global.state.dev[id].proc = run_script('cd ' + cache.path + ' && rm -Rf .devspace && ' + devspace + ' sync -n ' + id + ' --config=devspace.yaml --kubeconfig=' + kubeconfig + ' --no-warn', [], cb);
+            global.state.dev[id].proc = run_script(
+                `cd ${cache.path} && rm -Rf .devspace && ${devspace} sync -n ${id} --config=devspace.yaml ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn`,
+                [],
+                cb
+            );
         }
     }
 
@@ -346,17 +354,35 @@ export function consoleApp(id) {
 
     let kubeconfig = getAppKubeconfig(app.id);
 
-    if (!kubeconfig) return;
+    if (!kubeconfig && app.clusters[0] != 'local') return;
+
+    if (app.clusters[0] == 'local') kubeconfig = "";
 
     let cb = () => { };
 
     let args = [];
-    var child = child_process.spawn('echo "cd ' + cache.path + ' && devspace enter --config=devspace.yaml --kubeconfig=' + kubeconfig + '; rm /tmp/console.sh" > /tmp/console.sh ; chmod +x /tmp/console.sh ; open -a Terminal /tmp/console.sh', args, {
-        encoding: 'utf8',
-        stdio: 'pipe',
-        env: { ...process.env, FORCE_COLOR: true },
-        shell: true
-    });
+
+    if (kubeconfig == "") child_process.spawn(
+        `echo "cd ${cache.path} && kubectl config use-context minikube && devspace -n ${app.id} enter --config=devspace.yaml; rm /tmp/console.sh" > /tmp/console.sh ; chmod +x /tmp/console.sh ; open -a Terminal /tmp/console.sh`,
+        args,
+        {
+            encoding: 'utf8',
+            stdio: 'pipe',
+            env: { ...process.env, FORCE_COLOR: true },
+            shell: true
+        }
+    );
+
+    if (kubeconfig != "") child_process.spawn(
+        `echo "cd ${cache.path} && devspace -n ${app.id} enter --config=devspace.yaml --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh ; chmod +x /tmp/console.sh ; open -a Terminal /tmp/console.sh`,
+        args,
+        {
+            encoding: 'utf8',
+            stdio: 'pipe',
+            env: { ...process.env, FORCE_COLOR: true },
+            shell: true
+        }
+    );
 }
 
 export function checkAppClusterState(id) {
@@ -512,7 +538,9 @@ export function deploy(id) {
 
     let kubeconfig = getAppKubeconfig(global.state.app.id);
 
-    if (!kubeconfig) return;
+    if (!kubeconfig && global.state.app.clusters[0] != 'local') return;
+
+    if (global.state.app.clusters[0] == 'local') kubeconfig = "";
 
     global.state.pub[id].edgePending = true;
 
@@ -551,19 +579,44 @@ export function deployRecursive(id, cache, kubeconfig) {
 
         if (pub[0]) pub = pub[0];
 
-        log('deploy devspaceFile', devspaceFile);
+        // log('deploy devspaceFile', devspaceFile);
+        log(`${devspace} deploy -n ${id} --config=${devspaceFile} ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn -b`);
 
-        log(devspace + ' deploy -n ' + id + ' --config=' + devspaceFile + ' --kubeconfig=' + kubeconfig + ' --no-warn -b');
-
-        global.state.pub[id].proc = run_script(
-            'cd ' + cache.path + ' && docker login -u ' + pub.pullSecrets.pullsecret.username +
-            ' -p ' + pub.pullSecrets.pullsecret.password + ' ' + pub.pullSecrets.pullsecret.registry +
-            ' && ' + devspace + ' deploy -n ' + id + ' --config=' + devspaceFile + ' --kubeconfig=' + kubeconfig + ' -b',
+        // production 
+        if (kubeconfig) global.state.pub[id].proc = run_script(
+            `cd ${cache.path} && docker login -u ${pub.pullSecrets.pullsecret.username} \
+                -p ${pub.pullSecrets.pullsecret.password} ${pub.pullSecrets.pullsecret.registry} \
+                && ${devspace} deploy -n ${id} --config=${devspaceFile} ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} -b`,
             [],
             cb,
             1,
             (error) => { log('Deploy E: ', error.toString()); },
-            (output) => { global.state.last_activity = Date.now(); if (output.toString().includes("Successfully deployed")) { log('Deploy O:', output.toString()); global.state.pub[id].iteration += 1; deployRecursive(id, cache, kubeconfig); } }
+            (output) => {
+                global.state.last_activity = Date.now();
+                if (output.toString().includes("Successfully deployed")) {
+                    log('Deploy O:', output.toString());
+                    global.state.pub[id].iteration += 1;
+                    deployRecursive(id, cache, kubeconfig);
+                }
+            }
+        );
+
+        // minikube 
+        if (!kubeconfig) global.state.pub[id].proc = run_script(
+            `cd ${cache.path} && kubectl config use-context minikube \
+            && ${devspace} deploy -n ${id} --config=${devspaceFile} -b`,
+            [],
+            cb,
+            1,
+            (error) => { log('Deploy E: ', error.toString()); },
+            (output) => {
+                global.state.last_activity = Date.now();
+                if (output.toString().includes("Successfully deployed")) {
+                    log('Deploy O:', output.toString());
+                    global.state.pub[id].iteration += 1;
+                    deployRecursive(id, cache, kubeconfig);
+                }
+            }
         );
 
         // update UI

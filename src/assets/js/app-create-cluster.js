@@ -5,9 +5,11 @@ import { AppCreateImage } from './app-create-image.js'
 import { AppClusterPicker } from './app-cluster-picker.js'
 import { getAppRegistry } from './app-registry-helpers.js'
 import { provisionClusterApp } from './app-create-helpers.js'
+import { provisionClusterAppLocal } from './app-create-local-helpers.js'
 import fs from "fs"
 import * as path from 'path';
 import { Settings } from '../../../src/renderer/app-settings.js'
+import { log } from "console"
 
 /**
  * Class representing an App Create Dialog where user proivdes app name.
@@ -57,12 +59,12 @@ export class AppCreateCluster {
 
         // footer buttons
         document.querySelector(".modal-footer").innerHTML = `
-        <button id="btn-close" type="button" class="btn btn-outline-dark d-none close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Close")}</button>
-        <div class="btn-group" role="group" aria-label="Basic example">
-            <button id="btn-middle" type="button" class="btn btn-outline-dark app-picker-back" tabindex="-1">${__html("Back")}</button>
-            <button id="btn-primary" type="button" class="btn btn-outline-primary app-picker-next btn-app-create" tabindex="-1">${__html("Continue")}</button>
-        </div>
-        `;
+            <button id="btn-close" type="button" class="btn btn-outline-dark d-none close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Close")}</button>
+            <div class="btn-group" role="group" aria-label="Basic example">
+                <button id="btn-middle" type="button" class="btn btn-outline-dark app-picker-back" tabindex="-1">${__html("Back")}</button>
+                <button id="btn-primary" type="button" class="btn btn-outline-primary app-picker-next btn-app-create" tabindex="-1">${__html("Continue")}</button>
+            </div>
+            `;
 
         // next action listener
         onClick(".app-picker-next", e => {
@@ -87,6 +89,10 @@ export class AppCreateCluster {
             this.app.path = path.join(kenzapdir, this.app.slug);
             this.app.clusters = this.appClusterPicker.get();
 
+            log(this.app);
+
+            // return;
+
             // validate data
             if (!getDefaultAppPath()) { alert(__html('Application path can not be created.')); return; }
 
@@ -99,8 +105,17 @@ export class AppCreateCluster {
             // create app folder if not exists
             if (!fs.existsSync(this.app.path)) { fs.mkdirSync(this.app.path); }
 
-            // create app in cluster
-            provisionClusterApp(this.app, (msg, app) => {
+            // create app in production cluster
+            if (this.app.clusters[0] != 'local') provisionClusterApp(this.app, (msg, app) => {
+
+                simulateClick(document.querySelector(".close-modal"));
+
+                // Close the modal
+                new Settings(app.id);
+            });
+
+            // create app in local cluster
+            if (this.app.clusters[0] == 'local') provisionClusterAppLocal(this.app, (msg, app) => {
 
                 simulateClick(document.querySelector(".close-modal"));
 

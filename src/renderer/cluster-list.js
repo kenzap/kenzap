@@ -105,7 +105,22 @@ export class ClusterList {
                 <div class="app-warnings">
     
                 </div>
-                <div class="d-flex justify-content-between bd-highlight mb-3">
+                <div class="d-flex justify-content-between bd-highlight mb-3 d-none-">
+                    <nav class="bc" aria-label="breadcrumb"></nav>
+                    <div class="d-flex align-items-center">
+                        <a style="margin-right:16px;" class="preview-link nounderline d-none app-list" target="_blank" href="#">${__html('Apps')}<i class="mdi mdi-monitor"></i></a>
+                        <button class="btn btn-primary d-flex align-items-center mt-md-0 mt-2 cluster-create" data-bs-toggle="modal" data-bs-target=".modal" type="button">
+                            <span class="d-flex" role="status" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2"  viewBox="0 0 16 16">
+                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
+                                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"></path>
+                                </svg>
+                            </span>
+                            ${__html('Add cluster')}
+                        </button>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between bd-highlight mb-3 d-none">
                     <nav class="bc" aria-label="breadcrumb"></nav>
                     <div class="d-flex align-items-center">
                         <div class="dropdown">
@@ -129,21 +144,7 @@ export class ClusterList {
                         </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between bd-highlight mb-3 d-none">
-                    <nav class="bc" aria-label="breadcrumb"></nav>
-                    <div class="d-flex align-items-center">
-                        <a style="margin-right:16px;" class="preview-link nounderline d-none app-list" target="_blank" href="#">${__html('Apps')}<i class="mdi mdi-monitor"></i></a>
-                        <button class="btn btn-primary d-flex align-items-center mt-md-0 mt-2 cluster-create" data-bs-toggle="modal" data-bs-target=".modal" type="button">
-                            <span class="d-flex" role="status" aria-hidden="true">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2"  viewBox="0 0 16 16">
-                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
-                                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"></path>
-                                </svg>
-                            </span>
-                            ${__html('Add cluster')}
-                        </button>
-                    </div>
-                </div>
+
                 <div class="">
                     <div class="col-lg-12- grid-margin- stretch-card-">
                         <div class="card- border-white- shadow-sm-">
@@ -185,8 +186,7 @@ export class ClusterList {
                                                                     <div class="edge-status ${attr(cluster.status)}" data-id="${attr(cluster.id)}"></div>
                                                                     <div class="timgc app-settings" data-id="${attr(cluster.id)}">
                                                                         <a href="#" class="align-items-center justify-content-between">
-                                                                        ${`<img src="https://cdn.kenzap.com/loading.png" data-srcset="https://cdn.kenzap.com/loading.png" class="img-fluid rounded" alt="Events placeholder" srcset="https://cdn.kenzap.com/loading.png">`
-                }
+                                                                        ${`<img src="https://cdn.kenzap.com/loading.png" data-srcset="https://cdn.kenzap.com/loading.png" class="img-fluid rounded" alt="Events placeholder" srcset="https://cdn.kenzap.com/loading.png">`}
                                                                         </a>
                                                                     </div>
                                                                 </td>
@@ -217,7 +217,7 @@ export class ClusterList {
                                                                     </svg>
                                                                 </td>
                                                                 <td class="text-end" >
-                                                                    <div class="dropdown applicationsActionsCont">
+                                                                    <div class="dropdown applicationsActionsCont ${cluster.id == "local" ? "d-none" : ""}">
                                                                         <svg id="applicationsActions0" data-bs-toggle="dropdown" data-boundary="viewport" aria-expanded="false" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-three-dots-vertical dropdown-toggle po" viewBox="0 0 16 16">
                                                                             <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"></path>
                                                                         </svg>

@@ -142,7 +142,11 @@ export class AppStats {
 
         let kubeconfig = getAppKubeconfig(app.id);
 
-        if (!kubeconfig) return;
+        // if (!kubeconfig) return;
+
+        if (!kubeconfig && app.clusters[0] != 'local') return;
+
+        if (app.clusters[0] == 'local') kubeconfig = "";
 
         if (self.statsInterval) clearInterval(self.statsInterval);
 
@@ -158,7 +162,11 @@ export class AppStats {
 
             if (!document.querySelector(".cpu-stats")) { clearInterval(self.statsInterval); return; }
 
-            let proc = run_script('cd ' + self.cache.path + ' && ' + kubectl + ' top pods -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' --sum=true', [], cb, false);
+            let proc;
+
+            if (kubeconfig) proc = run_script('cd ' + self.cache.path + ' && ' + kubectl + ' top pods -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' --sum=true', [], cb, false);
+
+            if (!kubeconfig) proc = run_script('cd ' + self.cache.path + ' &&  kubectl config use-context minikube && ' + kubectl + ' top pods -n ' + app.id + ' --sum=true', [], cb, false);
 
             proc.stdout.on('data', (data) => {
 

@@ -1,7 +1,7 @@
 
 import global from "./global.js"
 import { clipboard } from 'electron'
-import { __html, html, attr, onClick, toast, getKenzapSettings } from './helpers.js'
+import { __html, html, attr, onClick, toast, getKenzapSettings, log } from './helpers.js'
 import "../scss/app-cluster-picker.css"
 
 export class AppClusterPicker {
@@ -10,8 +10,6 @@ export class AppClusterPicker {
 
         this.selector = "app-cluster-picker";
         this.app = app || global.state.app || {};
-
-        // console.log("AppClusterPicker", this.app);
 
         if (!this.app) this.app = { clusters: [] };
         if (!this.app.clusters) this.app.clusters = [];
@@ -60,6 +58,13 @@ export class AppClusterPicker {
                 if (this.skip) { this.skip = false; return; }
 
                 if (el.classList.contains("grayed")) { alert('Region is disabled'); return; }
+
+                log("block .cluster-picker");
+
+                // remove selected class from all data centers
+                [...document.querySelectorAll('.cluster-picker.selected')].forEach(dtc => {
+                    if (dtc.classList.contains("selected")) dtc.classList.remove("selected");
+                });
 
                 global.state.dtc_update = true;
 
@@ -111,12 +116,16 @@ export class AppClusterPicker {
             if (dtc.classList.contains("selected")) dtcArr.push(dtc.dataset.region);
         });
 
+        console.log("get data centers", dtcArr);
+
         return dtcArr;
     }
 
     init() {
 
         this.settings = getKenzapSettings();
+
+        // log("AppClusterPicker", this.settings);
 
         this.clusters = this.settings.clusters || [];
 

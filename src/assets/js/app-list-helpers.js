@@ -49,7 +49,7 @@ export function getAppIcon(app) {
     let conversions = { "httpd": "apache", "node": "nodejs" };
     let url = "";
 
-    log("getAppIcon", app);
+    // log("getAppIcon", app);
 
     if (app.icon) url = app.icon;
 
@@ -64,12 +64,12 @@ export function getAppIcon(app) {
         if (imageMatch && imageMatch[1]) {
 
             let slug = imageMatch[1].split(':')[0].replace(/\//g, '-');
-            log("imageMatch", slug);
+            // log("imageMatch", slug);
             url = `https://kenzap.cloud/static/apps/${slug}.svg?lastmod=5`;
         }
     }
 
-    log("url", url);
+    // log("url", url);
 
     if (!url) url = loading;
 

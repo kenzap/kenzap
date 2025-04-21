@@ -566,7 +566,11 @@ export class Endpoints {
         if (ingress.spec.rules.length) services.unshift(ingress);
 
         // no open hosts, delete ingress
-        if (!ingress.spec.rules.length) { this.app.clusters.forEach(cluster => { run_script('cd ' + cache.path + ' && kubectl delete ingress ' + this.app.slug + '-ingress --kubeconfig=kubeconfig-' + cluster + '.yaml', [], () => { }); }) }
+        if (!ingress.spec.rules.length) {
+            this.app.clusters.forEach(cluster => {
+                run_script(`cd ${cache.path} && kubectl delete ingress ${this.app.slug}-ingress ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], () => { });
+            });
+        }
 
         // convert json to final endpoints.yaml file
         let endpointFile = services.map(ef => { return yaml.dump(ef, {}); }).join("---\n");
@@ -577,14 +581,21 @@ export class Endpoints {
         let cb = () => { }
 
         // apply changes to cluster
-        this.app.clusters.forEach(cluster => { run_script('cd ' + cache.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + cluster + '.yaml', [], cb); });
+        this.app.clusters.forEach(cluster => {
+            run_script(`cd ${cache.path} && kubectl apply -f endpoints.yaml ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], cb);
+        });
     }
 
     endpoint() {
 
         let settings = getKenzapSettings();
 
-        return ".endpoint-" + settings.id + ".kenzap.cloud";
+        // log("endpoint");
+        // log(this.app);
+
+        if (this.app.clusters[0] == "local") return ".endpoint." + settings.id + ".local";
+
+        if (this.app.clusters[0] != "local") return ".endpoint." + settings.id + ".kenzap.cloud";
     }
 
     createEndpoints() {

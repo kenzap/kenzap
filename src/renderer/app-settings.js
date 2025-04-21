@@ -24,8 +24,6 @@ import "../assets/scss/app.css"
 import "../assets/scss/settings.css"
 import * as path from 'path';
 import fs from "fs"
-import loading from '../assets/img/loading.png';
-import cluster from 'cluster';
 
 /** 
  * Settings class. App settings page.
@@ -42,6 +40,8 @@ export class Settings {
     constructor(id) {
 
         global.state.page = "app-settings";
+
+        if (!global.state.pub[id]) global.state.pub[id] = {}
 
         // load this page
         this.init(id);
@@ -301,6 +301,8 @@ export class Settings {
 
             // Copy kubeconfig from app folder only if missing in clusterIds
             data.clusters.forEach(id => {
+
+                if (id == "local") return;
 
                 let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
                 const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);

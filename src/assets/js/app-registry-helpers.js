@@ -42,7 +42,7 @@ export function getCurrentRegistry(app, settings) {
 
             const devspace = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'devspace.yaml'), 'utf8'));
 
-            console.log(devspace[0].pullSecrets.pullsecret);
+            // console.log(devspace[0].pullSecrets.pullsecret);
 
             if (!devspace[0].pullSecrets.pullsecret) return {};
 

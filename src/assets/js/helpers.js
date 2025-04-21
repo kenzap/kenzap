@@ -161,9 +161,8 @@ export function getKenzapSettings() {
     // init defaults
     let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
     let appPath = appFolder + require('path').sep + '.config';
-
     let settings = {
-        "projects": [{ id: "", "project": __html("All Apps"), apps: [], current: true }]
+        "projects": [{ id: "", "project": __html("All Apps"), apps: [], current: true, clusters: [] }],
     };
 
     try {
@@ -176,6 +175,10 @@ export function getKenzapSettings() {
 
         console.log(e);
     }
+
+    if (!settings.clusters) settings.clusters = [];
+
+    settings.clusters.push({ id: "local", "name": __html("Minikube"), status: 'active', servers: [{ id: "minikube", status: "active", type: "minikube", server: "127.0.0.1" }] });
 
     return settings;
 }
@@ -392,7 +395,7 @@ export function cacheSettings(data) {
 
     fs.writeFileSync(appPath, JSON.stringify(data), 'utf8');
 
-    log("App settings file updated");
+    // log("App settings file updated");
 
     return true;
 }
