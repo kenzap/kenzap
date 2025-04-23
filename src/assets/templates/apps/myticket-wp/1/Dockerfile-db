@@ -1,0 +1,5 @@
+# Use official Kenzap image as base
+FROM kenzap/myticket-wp-mysql:latest
+
+# Expose port 3306 to accept database connection from WordPress
+EXPOSE 3306

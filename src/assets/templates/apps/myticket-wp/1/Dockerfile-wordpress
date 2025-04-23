@@ -1,0 +1,5 @@
+# Use official Kenzap image as base
+FROM kenzap/myticket-wp:latest
+
+# Expose port 80 to accept WordPress connections
+EXPOSE 80

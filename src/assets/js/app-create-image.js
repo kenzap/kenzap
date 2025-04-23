@@ -27,7 +27,11 @@ export class AppCreateImage {
 
         this.settings = getKenzapSettings();
 
-        // console.log(this.settings);
+        this.editors = {};
+
+        if (!global.dockerfiles) global.dockerfiles = {};
+
+        console.log(global.dockerfiles);
 
         this.init();
 
@@ -67,7 +71,7 @@ export class AppCreateImage {
                     ${app.dockerfiles.map(dockerfile => `
                         <div class="docker-editor mb-3">
                             <label for="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" class="form-label d-none">${__html(dockerfile.name)}</label>
-                            <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" data-id="${attr(app.id)}" data-i="${attr(i)}" data-name="${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${attr(dockerfile.content)}</textarea>
+                            <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" data-id="${attr(app.id)}" data-i="${attr(i)}" data-name="${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${global.dockerfiles["dockerfile-" + attr(app.id) + "-" + attr(dockerfile.name)] ? global.dockerfiles["dockerfile-" + attr(app.id) + "-" + attr(dockerfile.name)] : attr(dockerfile.content)}</textarea>
                         </div>
                     `).join('')}
                     <div class="clearfix"></div>
@@ -102,6 +106,13 @@ export class AppCreateImage {
             this.app.slug = slug;
             this.app.actions = this.actions;
             this.app.image_id = image_id;
+
+            // update dockerfiles
+            this.app.dockerfiles = this.apps[i].dockerfiles.map(dockerfile => {
+                return { name: dockerfile.name, index: e.currentTarget.dataset.id, content: this.editors["dockerfile-" + e.currentTarget.dataset.id + "-" + dockerfile.name].getValue() };
+            });
+
+            console.log(this.app);
 
             new AppCreateCluster(this.app);
         });
@@ -170,7 +181,7 @@ export class AppCreateImage {
 
         const textareas = this.modal.querySelectorAll("textarea[id^='dockerfile-']");
         textareas.forEach(textarea => {
-            const editor = ace.edit(textarea, {
+            this.editors[textarea.id] = ace.edit(textarea, {
                 maxLines: 20,
                 minLines: 10,
                 fontSize: 14,
@@ -179,8 +190,13 @@ export class AppCreateImage {
                 tabSize: 4
             });
 
-            editor.setValue(textarea.innerHTML);
-            editor.clearSelection();
+            this.editors[textarea.id].setValue(textarea.innerHTML);
+            this.editors[textarea.id].clearSelection();
+
+            this.editors[textarea.id].getSession().on('change', () => {
+                console.log("Editor changed: " + textarea.id);
+                global.dockerfiles[textarea.id] = this.editors[textarea.id].getValue();
+            });
         });
     }
 }

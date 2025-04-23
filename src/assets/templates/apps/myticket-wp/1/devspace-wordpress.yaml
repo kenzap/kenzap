@@ -24,7 +24,7 @@ dev:
     imageSelector: template_registry
     arch: arm64
     sync:
-      - path: _:/var/www
+      - path: _:/var/www/html
         excludeFile: .ignore
         excludePaths:
           - Dockerfile

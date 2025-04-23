@@ -1,0 +1,170 @@
+{
+  "name": "WordPress",
+  "slug": "wordpress",
+  "version": "1.0.0",
+  "license": "LGPL-3.0-or-later",
+  "controls": [
+    {
+      "type": "section",
+      "title": "Dockerfiles",
+      "hint": "WordPress configuration files.",
+      "controls": [
+        {
+          "type": "dockerfile",
+          "file": "Dockerfile-wordpress",
+          "title": "WordPress"
+        },
+        {
+          "type": "dockerfile",
+          "file": "Dockerfile-db",
+          "title": "Database"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Database",
+      "hint": "Database configurations for WordPress.",
+      "controls": [
+        {
+          "type": "text",
+          "name": "wordpress_db_name",
+          "title": "Database Name",
+          "default": "wordpress"
+        },
+        {
+          "type": "text",
+          "name": "wordpress_db_user",
+          "title": "Database User",
+          "default": "root"
+        },
+        {
+          "type": "password",
+          "name": "wordpress_db_pass",
+          "title": "Database Password",
+          "default": ""
+        },
+        {
+          "type": "text",
+          "name": "wordpress_db_host",
+          "title": "Database Host",
+          "default": "localhost"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "trigger": "firstView",
+      "action": "setValue('wordpress_db_name', 'wordpress')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('wordpress_db_user', 12)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('wordpress_db_root_pass', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('wordpress_db_pass', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_auth_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_secure_auth_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_logged_in_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_nonce_key', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_auth_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_secure_auth_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_logged_in_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "genToken('template_wordpress_nonce_salt', 24)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_db_name', 'wordpress_db_name')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_db_user', 'wordpress_db_user')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_db_root_pass', 'wordpress_db_root_pass')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_db_pass', 'wordpress_db_pass')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_db_host', 'wordpress_db_host')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_auth_key', 'template_wordpress_auth_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_secure_auth_key', 'template_wordpress_secure_auth_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_logged_in_key', 'template_wordpress_logged_in_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_nonce_key', 'template_wordpress_nonce_key')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_auth_salt', 'template_wordpress_auth_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_secure_auth_salt', 'template_wordpress_secure_auth_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_logged_in_salt', 'template_wordpress_logged_in_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "replaceValue('template_wordpress_nonce_salt', 'template_wordpress_nonce_salt')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "setNamespace('template_namespace')"
+    },
+    {
+      "trigger": "firstView",
+      "action": "setEndpointHttps('template_https_endpoint)"
+    },
+    {
+      "trigger": "firstView",
+      "action": "setEndpoint('template_endpoint')"
+    }
+  ]
+}

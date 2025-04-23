@@ -2,7 +2,7 @@ version: v2beta1
 images:
   app:
     image: template_registry
-    dockerfile: ./Dockerfile-wordpress
+    dockerfile: ./Dockerfile-db
     buildKit:
       args:
         - '--platform'
@@ -11,7 +11,7 @@ deployments:
   app:
     kubectl:
       manifests:
-        - app-wordpress.yaml
+        - app-db.yaml
 pullSecrets:
   pullsecret:
     registry: template_registry_url
@@ -24,7 +24,7 @@ dev:
     imageSelector: template_registry
     arch: arm64
     sync:
-      - path: _:/var/www
+      - path: db:/home
         excludeFile: .ignore
         excludePaths:
           - Dockerfile

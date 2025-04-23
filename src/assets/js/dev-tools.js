@@ -568,7 +568,18 @@ export function deploy(id) {
 
 export function deployRecursive(id, cache, kubeconfig) {
 
+    log('deployRecursive', id);
+
     let devspace = getDevspacePath();
+
+    if (global.timeout) clearTimeout(global.timeout);
+
+    global.timeout = setTimeout((id) => {
+        global.state.pub[id].iteration = global.state.pub[id].path.length;
+        global.state.pub[id].proc = null;
+        global.state.loading = false;
+        toggleDepIconState(id);
+    }, 1000 * 60 * 5, id);
 
     if (global.state.pub[id].iteration >= global.state.pub[id].path.length) { global.state.loading = false; global.state.pub[id].proc = null; toggleDepIconState(id); return; }
 
@@ -636,6 +647,8 @@ export function deleteApp(id, cb) {
 
     let kubeconfigCluster = getClusterKubeconfig(data.clusters[0]);
 
+    if (data.clusters[0].includes("local")) { deleteAppLocal(id, data, cb); return; }
+
     log("kubeconfigCluster", kubeconfigCluster);
 
     let kubeconfig = getAppKubeconfig(id);
@@ -677,6 +690,60 @@ export function deleteApp(id, cb) {
         // CertificateSigningRequest
         log(`kubectl delete CertificateSigningRequest ${data.slug} --kubeconfig=${kubeconfigCluster}`);
         run_script(`kubectl delete CertificateSigningRequest ${data.slug} --kubeconfig=${kubeconfigCluster}`, [], () => { log('Clearing previous certificate signing requests'); step5(); }, 1, (error) => { step5(); });
+    }
+
+    let step5 = () => {
+
+        toast(global.state.msg);
+
+        // remove .kenzap file from app folder
+        let kenzapFilePath = path.join(data.path, '.kenzap');
+        if (fs.existsSync(kenzapFilePath)) {
+            fs.unlink(kenzapFilePath, (err) => {
+                if (err) {
+                    log('Error removing .kenzap file:', err);
+                } else {
+                    log('.kenzap file removed successfully');
+                }
+            });
+        } else {
+            log('.kenzap file does not exist');
+        }
+
+        if (typeof cb === 'function') cb();
+    };
+
+    toast(__html('Deleting app'));
+
+    step1();
+}
+
+export function deleteAppLocal(id, data, cb) {
+
+    log('deleteAppLocal', data);
+
+    let step1 = () => {
+
+        // clear namespace
+        log(`kubectl config use-context minikube && cd ${data.path}; kubectl delete all --all -n ${data.slug} `);
+        run_script(`kubectl config use-context minikube && cd ${data.path}; kubectl delete all --all -n ${data.slug}`, [], () => { log(`Removing previous resources in ${data.slug} namespace`); step2(); }, 0, (error) => { log('Cluster 1 E: ', error.toString()); });
+    }
+
+    let step2 = () => {
+
+        hideLoader();
+
+        // clear namespace
+        run_script(`kubectl config use-context minikube && cd ${data.path}; kubectl delete namespace ${data.slug}`, [], () => { log(`Removing ${data.slug} namespace`); step3(); }, 0, (error) => { log('Cluster 2 E: ', error.toString()); step3(); });
+    }
+
+    let step3 = () => {
+
+        log('step3');
+
+        // force delete namespace and all resources
+        log(`kubectl config use-context minikube && kubectl get namespace "${data.slug}" -o json | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" | kubectl replace --raw /api/v1/namespaces/${data.slug}/finalize -f -`);
+        run_script(`cd ${data.path}; kubectl config use-context minikube && kubectl get namespace "${data.slug}" -o json | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" | kubectl replace --raw /api/v1/namespaces/${data.slug}/finalize -f -`, [], () => { step5(); log('Namespace force removed'); }, 0, (error) => { step5(); log('Cluster 3 E: ', error.toString()); });
     }
 
     let step5 = () => {

@@ -21,5 +21,6 @@ export const appList = [
     // { name: "Prometheus", description: "Monitoring and alerting toolkit", image: "prom/prometheus" },
     // { name: "RabbitMQ", description: "Message broker for communication", image: "rabbitmq" },
     { name: "Alpine", description: "Minimal Docker image for lightweight containers", image: "alpine", icon: "https://kenzap.cloud/static/apps/alpine.svg" },
-    { name: "Adminer", description: "Database management in a single PHP file", image: "adminer", icon: "https://kenzap.cloud/static/apps/adminer.svg" }
+    { name: "Adminer", description: "Database management in a single PHP file", image: "adminer", icon: "https://kenzap.cloud/static/apps/adminer.svg" },
+    { name: "MyTicket WP", description: "Organize events, sell and validate tickets in WordPress.", image: "myticket-wp", icon: "https://kenzap.cloud/static/apps/myticket.svg" }
 ];

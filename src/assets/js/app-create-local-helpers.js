@@ -257,35 +257,6 @@ export function createLocalAppLocal(app, cb) {
     // clean up prev files
     cleanUpFiles(app);
 
-    // check if app.yaml is missing
-    if (!fs.existsSync(path.join(app.path, "devspace.yaml"))) {
-
-        let devspaceContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "devspace.yaml"), 'utf8');
-        fs.writeFileSync(path.join(app.path, 'devspace.yaml'), devspaceContent);
-        applyActions(app, path.join(app.path, "devspace.yaml"));
-    }
-
-    // check if app.yaml is missing
-    if (!fs.existsSync(path.join(app.path, "app.yaml"))) {
-
-        let appContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "app.yaml"), 'utf8');
-        fs.writeFileSync(path.join(app.path, 'app.yaml'), appContent);
-        log("applying rules for app.yaml");
-        applyActions(app, path.join(app.path, 'app.yaml'));
-    }
-
-    // check if endpoints.yaml is missing
-    let endpointsPath = path.join(app.path, 'endpoints.yaml');
-
-    // check if endpoints.yaml is missing
-    if (!fs.existsSync(endpointsPath)) {
-
-        // create endpoints.yaml
-        let endpointsContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "endpoints.yaml"), 'utf8');
-        fs.writeFileSync(endpointsPath, endpointsContent);
-        applyActions(app, endpointsPath);
-    }
-
     // copy app template files
     const templateFolder = path.join(__dirname, "..", "templates", "apps", app.image, app.image_id);
     const filesToExclude = ["manifest.json", ".DS_Store"];
@@ -332,6 +303,47 @@ export function createLocalAppLocal(app, cb) {
     }
 
     logModal("Creating application endpoints");
+
+    // override Dockerfiles
+    app.dockerfiles.forEach(dockerfile => {
+        const dockerfilePath = path.join(app.path, dockerfile.name);
+        if (fs.existsSync(dockerfilePath)) {
+            fs.writeFileSync(dockerfilePath, dockerfile.content);
+            log(`Dockerfile ${dockerfile.name} updated`);
+            applyActions(app, dockerfilePath);
+        } else {
+            log(`Dockerfile ${dockerfile.name} not found`);
+        }
+    });
+
+    // check if app.yaml is missing
+    if (!fs.existsSync(path.join(app.path, "devspace.yaml")) && !fs.readdirSync(app.path).some(file => /^devspace-.*\.yaml$/.test(file))) {
+
+        let devspaceContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "devspace.yaml"), 'utf8');
+        fs.writeFileSync(path.join(app.path, 'devspace.yaml'), devspaceContent);
+        applyActions(app, path.join(app.path, "devspace.yaml"));
+    }
+
+    // check if app.yaml is missing
+    if (!fs.existsSync(path.join(app.path, "app.yaml")) && !fs.readdirSync(app.path).some(file => /^app-.*\.yaml$/.test(file))) {
+
+        let appContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "app.yaml"), 'utf8');
+        fs.writeFileSync(path.join(app.path, 'app.yaml'), appContent);
+        log("applying rules for app.yaml");
+        applyActions(app, path.join(app.path, 'app.yaml'));
+    }
+
+    // check if endpoints.yaml is missing
+    let endpointsPath = path.join(app.path, 'endpoints.yaml');
+
+    // check if endpoints.yaml is missing
+    if (!fs.existsSync(endpointsPath)) {
+
+        // create endpoints.yaml
+        let endpointsContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "endpoints.yaml"), 'utf8');
+        fs.writeFileSync(endpointsPath, endpointsContent);
+        applyActions(app, endpointsPath);
+    }
 
     // update endpoints.yaml
     let endpointsContent = fs.readFileSync(endpointsPath, 'utf8');

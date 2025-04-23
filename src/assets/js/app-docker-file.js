@@ -91,7 +91,6 @@ export class DockerFile {
         this.basePath = getDefaultAppPath() + require('path').sep + this.app.id + require('path').sep;
         this.dockerFiles = fs.readdirSync(this.basePath).filter(file => file.startsWith('Dockerfile'));
 
-
         document.querySelector('docker-file').innerHTML = this.view();
         this.render();
 
