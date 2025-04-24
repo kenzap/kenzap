@@ -64,6 +64,12 @@ export class AppCreateTitle {
                 return;
             }
 
+            if (!/^[a-zA-Z0-9\s]+$/.test(this.app.title)) {
+                document.querySelector("#app-title").classList.add("is-invalid");
+                document.querySelector("#app-title").nextElementSibling.innerHTML = __html('Only letters, digits, and spaces are allowed.');
+                return;
+            }
+
             new AppCreateImage(this.app);
         });
 

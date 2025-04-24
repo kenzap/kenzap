@@ -1,11 +1,12 @@
 
 .app-picker-list{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Adjust column size */
+  grid-template-columns: repeat(5, 1fr); /* Fixed 5 columns */
   gap: 20px; /* Space between items */
   width: 100%; /* Ensure it spans the container */
-  justify-content: center; /* Center the grid items */
-  align-items: center; /* Align items vertically */
+  justify-content: start; /* Align items to the start */
+  height: 300px;
+  overflow-y: scroll;
 }
 
 .app-icon-container{

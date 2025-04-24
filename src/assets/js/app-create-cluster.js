@@ -44,7 +44,7 @@ export class AppCreateCluster {
         // set wide screen
         document.querySelector(".modal-dialog").classList.add("modal-lg");
 
-        document.querySelector(".modal-title").innerHTML = __html("Cluster");
+        document.querySelector(".modal-title").innerHTML = __html("Deployment");
 
         this.modal.querySelector(".modal-body").innerHTML = `
             <div class="form-group my-5 py-5 text-center-">
