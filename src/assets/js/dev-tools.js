@@ -5,6 +5,7 @@ import { __html, attr, onClick, simulateClick, getSetting, toast, showLoader, hi
 import { appList } from "../../renderer/app-list.js"
 import { getAppKubeconfig } from './app-status-helpers.js'
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
+import { DevToolsSync } from './dev-tools-sync.js'
 import { Client as ssh } from 'ssh2';
 import { timeStamp } from "console"
 import child_process from "child_process"
@@ -54,22 +55,6 @@ export class DevTools {
             }
         });
 
-        // start dev
-        onClick('.start-dev-app', e => {
-
-            e.preventDefault();
-
-            devApp(e.currentTarget.dataset.id, 'start');
-        });
-
-        // stop dev
-        onClick('.stop-dev-app', e => {
-
-            e.preventDefault();
-
-            devApp(e.currentTarget.dataset.id, 'stop');
-        });
-
         // start console
         onClick('.start-terminal', e => {
 
@@ -91,6 +76,9 @@ export class DevTools {
     }
 
     init() {
+
+        this.devToolsSync = new DevToolsSync();
+        this.devToolsSync.init();
 
         this.listeners();
     }
@@ -263,79 +251,6 @@ export function getDevspacePath() {
     }
 
     return devspacePath;
-}
-
-/**
- * Manages the development state of an application by starting or stopping the development process.
- *
- * @param {string} id - The unique identifier of the application.
- * @param {string} cmd - The command to execute, either 'start' or 'stop'.
- */
-export function devApp(id, cmd) {
-
-    if (!global.state.dev) global.state.dev = {};
-    if (!global.state.dev[id]) global.state.dev[id] = { running: true };
-
-    let cache = getSetting(id);
-
-    let app = global.state.apps.filter(app => app.id == id)[0];
-
-    if (!validPath(cache)) return;
-
-    let kubeconfig = getAppKubeconfig(app.id);
-
-    if (!kubeconfig && app.clusters[0] != 'local') return;
-
-    if (app.clusters[0] == 'local') kubeconfig = "";
-
-    // if (!kubeconfig) return;
-
-    let devspace = getDevspacePath();
-
-    if (cmd == 'start') {
-
-        document.querySelector('[data-id="' + id + '"].stop-dev-app').classList.remove('d-none');
-        document.querySelector('[data-id="' + id + '"].start-dev-app').classList.add('d-none');
-        if (document.querySelector('[data-id="' + id + '"].dev-badge')) document.querySelector('[data-id="' + id + '"].dev-badge').parentElement.innerHTML = `<div class="badge dev-badge bg-danger fw-light po" data-id="${app.id}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ${__html('Syncing')}</div></div>`;
-        document.querySelector('.console-output').innerHTML = "";
-
-        let cb = () => {
-
-            log(`cd ${cache.path} && ${devspace} sync -n ${id} --config=devspace.yaml ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn`)
-        }
-
-        if (global.state.dev[id].proc) {
-            terminate(global.state.dev[id].proc.pid, err => {
-                if (err) {
-                    log('Failed to terminate existing process:', err);
-                } else {
-                    log('Terminated existing devspace sync process');
-                }
-                startDevspaceSync();
-            });
-        } else {
-            startDevspaceSync();
-        }
-
-        function startDevspaceSync() {
-
-            global.state.dev[id].status = "sync";
-            global.state.dev[id].proc = run_script(
-                `cd ${cache.path} && rm -Rf .devspace && ${devspace} sync -n ${id} --config=devspace.yaml ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn`,
-                [],
-                cb
-            );
-        }
-    }
-
-    if (cmd == 'stop') {
-
-        document.querySelector('[data-id="' + id + '"].stop-dev-app').classList.add('d-none');
-        document.querySelector('[data-id="' + id + '"].start-dev-app').classList.remove('d-none');
-        document.querySelector('[data-id="' + id + '"].dev-badge').parentElement.innerHTML = `<div class="badge dev-badge bg-primary fw-light po" data-id="${app.id}"><div class="d-flex align-items-center">${__html('Published')}</div></div>`
-        terminate(global.state.dev[id].proc.pid, err => log(err))
-        global.state.dev[id].status = "stop";
-    }
 }
 
 /**
@@ -997,7 +912,7 @@ export function normalizeStyle(data) {
 
 export function validPath(cache) {
 
-    log('validPath');
+    // log('validPath');
 
     if (!cache.path) {
 
