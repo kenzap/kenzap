@@ -14,6 +14,8 @@ export class AppCreateTitle {
 
         this.app = app;
 
+        log(this.app);
+
         this.init();
     }
 
@@ -36,7 +38,7 @@ export class AppCreateTitle {
             <div class="form-group my-5 py-5 text-center-">
                 <div class="m-auto" style="max-width: 500px;">
                     <label for="app-title" class="form-label h5 d-none">${__html('App Name')}</label>
-                    <input id="app-title" type="text" class="form-control form-control-lg mx-auto" placeholder="${__html('Enter app name')}" value="${attr(this.app.title ? this.app.title : "")}" />
+                    <input id="app-title" type="text" class="form-control form-control-lg mx-auto" placeholder="${__html('Enter app name')}" value="${attr(this.app.title ? this.app.title : this.app.name)}" />
                     <div class="invalid-feedback">${__html('Please provide a valid app name.')}</div>
                 </div>
             </div>

@@ -1,4 +1,3 @@
-
 import global from "./global.js"
 import { shell } from 'electron' // deconstructing assignment
 import { __html, attr, onClick, simulateClick, getSetting, toast, showLoader, hideLoader, parseError, log } from './helpers.js'
@@ -6,6 +5,7 @@ import { appList } from "../../renderer/app-list.js"
 import { getAppKubeconfig } from './app-status-helpers.js'
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
 import { DevToolsSync } from './dev-tools-sync.js'
+import { DevToolsConsole } from './dev-tools-console.js'
 import { Client as ssh } from 'ssh2';
 import { timeStamp } from "console"
 import child_process from "child_process"
@@ -55,14 +55,6 @@ export class DevTools {
             }
         });
 
-        // start console
-        onClick('.start-terminal', e => {
-
-            e.preventDefault();
-
-            consoleApp(e.currentTarget.dataset.id);
-        });
-
         // open folder
         onClick('.open-folder', e => {
 
@@ -79,6 +71,9 @@ export class DevTools {
 
         this.devToolsSync = new DevToolsSync();
         this.devToolsSync.init();
+
+        this.devToolsConsole = new DevToolsConsole();
+        this.devToolsConsole.init();
 
         this.listeners();
     }
@@ -251,53 +246,6 @@ export function getDevspacePath() {
     }
 
     return devspacePath;
-}
-
-/**
- * Launches a terminal and executes a script to enter a development space for the specified app.
- *
- * @param {string} id - The ID of the app to enter the development space for.
- *
- */
-export function consoleApp(id) {
-
-    let cache = getSetting(id);
-
-    let app = global.state.apps.filter(app => app.id == id)[0];
-
-    if (!validPath(cache)) return;
-
-    let kubeconfig = getAppKubeconfig(app.id);
-
-    if (!kubeconfig && app.clusters[0] != 'local') return;
-
-    if (app.clusters[0] == 'local') kubeconfig = "";
-
-    let cb = () => { };
-
-    let args = [];
-
-    if (kubeconfig == "") child_process.spawn(
-        `echo "cd ${cache.path} && kubectl config use-context minikube && devspace -n ${app.id} enter --config=devspace.yaml; rm /tmp/console.sh" > /tmp/console.sh ; chmod +x /tmp/console.sh ; open -a Terminal /tmp/console.sh`,
-        args,
-        {
-            encoding: 'utf8',
-            stdio: 'pipe',
-            env: { ...process.env, FORCE_COLOR: true },
-            shell: true
-        }
-    );
-
-    if (kubeconfig != "") child_process.spawn(
-        `echo "cd ${cache.path} && devspace -n ${app.id} enter --config=devspace.yaml --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh ; chmod +x /tmp/console.sh ; open -a Terminal /tmp/console.sh`,
-        args,
-        {
-            encoding: 'utf8',
-            stdio: 'pipe',
-            env: { ...process.env, FORCE_COLOR: true },
-            shell: true
-        }
-    );
 }
 
 export function checkAppClusterState(id) {
