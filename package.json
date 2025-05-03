@@ -1,14 +1,24 @@
 {
   "name": "Kenzap",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "license": "LGPL-3.0-or-later",
+  "description": "Kenzap is the fastest way to deploy microservice applications to the cloud.",
+  "author": "Kenzap Pte Ltd",
   "scripts": {
     "dev": "electron-webpack dev",
     "compile": "electron-webpack",
-    "dist": "yarn compile && electron-builder",
-    "distx": "yarn compile && electron-builder -m --x64",
-    "dist:dir": "yarn dist --dir -c.compression=store -c.mac.identity=null",
+    "dist": "yarn compile && electron-builder && cp -R src/assets/templates dist/",
+    "distx": "yarn compile && electron-builder -m --x64 && cp -R src/assets/templates dist/",
+    "dist:dir": "yarn dist --dir -c.compression=store -c.mac.identity=null && cp -R src/assets/templates dist/",
     "start": "env PATH=$PATH:/usr/local/bin electron ."
+  },
+  "build": {
+    "extraResources": [
+      {
+        "from": "src/assets/templates",
+        "to": "templates"
+      }
+    ]
   },
   "dependencies": {
     "@kenzap/k-cloud": "latest",
@@ -20,6 +30,7 @@
     "bootstrap": "latest",
     "child_process": "latest",
     "decompress-zip": "latest",
+    "fix-path": "^4.0.0",
     "js-yaml": "latest",
     "slugify": "latest",
     "source-map-support": "latest",

@@ -7,14 +7,16 @@ import terminate from "terminate"
 import fs from "fs"
 import yaml from 'js-yaml';
 import { AppList } from "../../renderer/app-list.js"
+import { Home } from "../../renderer/home.js"
 import { getAppKubeconfig } from './app-status-helpers.js'
-import * as path from 'path';
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_script } from './dev-tools.js'
+import { run_script, getMinukubePath } from './dev-tools.js'
+import { warning } from './warnings.js'
 import { Client as ssh } from 'ssh2';
 import * as os from 'os';
+import * as path from 'path';
 import { set } from "ace-builds/src-noconflict/ace.js"
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 
 /**
  * Verify if the following dependencies are working on the host machiene
@@ -26,118 +28,33 @@ const { exec } = require('child_process');
  * 
  * @name checkEnvironment
  * @return {Object} status - callback function
+ * /Users/pavellukasenko/Extensions/kenzap/node_modules/.bin:/Users/pavellukasenko/Extensions/node_modules/.bin:/Users/pavellukasenko/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/Users/pavellukasenko/.nvm/versions/node/v19.9.0/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/pavellukasenko/.nvm/versions/node/v19.9.0/bin:/opt/homebrew/opt/ruby/bin:/Users/pavellukasenko/opt/anaconda3/bin:/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/usr/local/MacGPG2/bin:/usr/local/share/dotnet:~/.dotnet/tools:/Library/Frameworks/Mono.framework/Versions/Current/Commands
+ * /usr/bin:/bin:/usr/sbin:/sbin
  */
 export function checkEnvironment() {
 
     log('Arch OS: ' + os.arch() + ' OS: ' + os.platform());
 
-    if (!global.state.installation) {
-        global.state.installation = { attempts: { kubectl: 0, devspace: 0, docker: 0, minikube: 0, total: 0 } };
+    // log('Checking environment...');
+
+    // log(process.env.PATH);
+
+    if (!global.state.installation) { global.state.installation = { c: 0, allow: true, installing: false, svc: [], timeout: null, attempts: { kubectl: 0, devspace: 0, docker: 0, minikube: 0, total: 0 } }; }
+
+    const lastRun = global.state.lastRun || 0;
+    const now = Date.now();
+
+    if (now - lastRun < 10000) {
+        // log('Script execution blocked: Please wait at least 1 minute between runs.');
+        if (global.state.installation.c < 3) {
+
+            if (global.state.installation.timeout) clearTimeout(global.state.installation.timeout)
+            global.state.installation.timeout = setTimeout(() => { checkEnvironment(); }, 500);
+        }
+        return;
     }
 
-    let status = { c: 0, allow: true, installing: false, svc: [] };
-    let cb = () => { };
-
-    const callback_response = (data) => {
-
-        if (!data) return;
-
-        data = data.toString();
-        status.c++;
-        status.installing = false;
-        status.allow = true;
-
-        // log("callback response os: " + os.platform());
-        log(data)
-        // log(status)
-
-        if (data.includes('can not create home directory')) {
-            status.allow = false;
-            status.svc.push({ name: "Can not create home directory", link: "https://kenzap.com" });
-        }
-
-        if (data.includes('docker: command not found') || data.includes('docker: not found') || data.includes('not found: docker') || data.includes('Cannot connect to the Docker')) {
-            status.allow = false;
-            status.svc.push({ name: "Docker Desktop", link: "https://docs.docker.com/desktop/install/mac-install/" });
-        }
-
-        if (data.includes('kubectl: command not found') || data.includes('kubectl: not found') || data.includes('not found: kubectl')) {
-            status.svc.push({ name: "kubectl", link: "https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/" });
-            log('installing kubectl');
-            global.state.installation.attempts.kubectl++;
-
-            if (global.state.installation.attempts.kubectl < 3) {
-                status.installing = true;
-                installKubectl(cb, callback_response);
-            }
-
-            if (global.state.installation.attempts.kubectl >= 3) {
-                status.allow = false;
-            }
-        }
-
-        if (data.includes('devspace: command not found') || data.includes('devspace: not found') || data.includes('not found: devspace')) {
-            status.svc.push({ name: "DevSpace", link: "https://www.devspace.sh/docs/getting-started/installation?x0=1" });
-            global.state.installation.attempts.devspace++;
-            log('installing devspace');
-
-            if (global.state.installation.attempts.devspace < 3) {
-                status.installing = true;
-                installDevSpace(cb, callback_response);
-            }
-
-            if (global.state.installation.attempts.devspace >= 3) {
-                status.allow = false;
-            }
-        }
-
-        if (data.includes('minikube: command not found') || data.includes('minikube: not found') || data.includes('not found: minikube') || data.includes('minikube not found') || data.includes('command -v minikube')) {
-            status.svc.push({ name: "Minikube", link: "https://minikube.sigs.k8s.io/docs/start/" });
-            global.state.installation.attempts.minikube++;
-            log('installing minikube');
-
-            if (global.state.installation.attempts.minikube < 3) {
-                status.installing = true;
-                installMinikube(cb, callback_response);
-            }
-
-            if (global.state.installation.attempts.minikube >= 3) {
-                status.allow = false;
-            }
-        }
-
-        if (status.installing) {
-
-            blockUI(status);
-
-            setTimeout(() => { callback_response(''); }, 10000);
-        }
-
-        if (!status.allow && !status.installing) {
-
-            showWarning(status);
-        }
-
-        if (status.allow && !status.installing) {
-
-            if (global.state.timeout) { clearTimeout(global.state.timeout); }
-            global.state.timeout = setTimeout(() => {
-                new AppList();
-            }, 3000);
-        }
-
-        onClick(".open-dep-link", e => {
-            e.preventDefault();
-            require('electron').shell.openExternal(e.currentTarget.dataset.link);
-        });
-
-        onClick(".btn-refresh", e => {
-            e.preventDefault();
-            new AppList();
-        });
-    };
-
-    log('checking dependencies');
+    global.state.lastRun = now;
 
     if (!fs.existsSync(kenzapdir)) {
         try {
@@ -151,23 +68,175 @@ export function checkEnvironment() {
         callback_response("can not create home directory");
     }
 
-    run_script('docker stats --no-stream', [], cb, 0, callback_response);
+    const requiredCommands = {
+        // docker: ['docker --version', 'Docker', 'https://docs.docker.com/desktop/install/mac-install/', 'Please launch Docker Desktop'],
+        docker: ['docker stats --no-stream', 'Docker', 'https://docs.docker.com/desktop/install/mac-install/', 'Please launch Docker Desktop'],
+        brew: ['brew --version', 'Homebrew', 'https://brew.sh/', 'Installing Homebrew..'],
+        devspace: ['devspace --version', 'DevSpace', 'https://www.devspace.sh/docs/getting-started/installation?x0=3', 'Installing DevSpace CLI..'],
+        kubectl: ['kubectl version --client', 'Kubernetes CLI', 'https://kubernetes.io/docs/tasks/tools/', 'Installing Kubernetes CLI..'],
+        minikube: ['minikube version', 'Minikube CLI', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Installing Minikube CLI..'],
+        minikube_status: ['minikube status', 'Minikube', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Waiting for Minikube to start..'],
+        minikube_tunnel: ['pgrep -f "minikube tunnel"', 'Minikube Tunnel', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Waiting for Minikube Tunnel to start..'],
+    };
 
-    log("mode : " + process.env.NODE_ENV);
+    const missing = [];
 
-    // TODO: check production
-    // if (process.env.NODE_ENV === 'development') {
-    //     log('running in development mode');
-    //     exec('which kubectl', (error, stdout, stderr) => callback_response(error));
-    //     exec('which devspace', (error, stdout, stderr) => callback_response(error));
-    //     exec('which minikube', (error, stdout, stderr) => callback_response(error));
-    // } else {
-    // log('running in production mode');
-    exec('command -v kubectl', (error, stdout, stderr) => callback_response(error));
-    exec('command -v devspace', (error, stdout, stderr) => callback_response(error));
-    exec('command -v minikube', (error, stdout, stderr) => callback_response(error));
-    exec('minikube status', (error, stdout, stderr) => {
+    global.state.installation.svc = [];
+
+    for (const [cmd, [test, name, link, note]] of Object.entries(requiredCommands)) {
+        try {
+            // console.log('Check: ' + test);
+            const output = execSync(test, { encoding: 'utf-8' });
+            if (output.includes('not found') || output.includes('command not found') || output.includes('not recognized as an internal or external command') || output.length == 0) {
+                missing.push(name);
+                global.state.installation.allow = false;
+                global.state.installation.svc.push({ name: name, link: link, note: note });
+                global.state.installation.c += 1;
+                // console.log('Command Output: ' + output);
+                // console.log('Missing: ' + name);
+            }
+
+        } catch (e) {
+            // console.log('Error C: ' + e);
+            missing.push(name);
+            global.state.installation.allow = false;
+            global.state.installation.svc.push({ name: name, link: link, note: note });
+            global.state.installation.c += 1;
+        }
+    }
+
+    // showWarning();
+    console.log('missing: ', missing);
+    // return;
+
+    if (missing.length > 0) {
+
+        setTimeout(() => { blockUI() }, 1000);
+
+        // log('Installing missing dependencies: ' + missing.join(', '));
+        missing.forEach(dep => {
+
+            switch (dep) {
+                case 'Docker':
+                    log('Waiting for Docker...');
+                    // Add Docker installation logic here
+                    break;
+                case 'Homebrew':
+                    log('Installing Homebrew...');
+                    installHomebrew(installCallback);
+                    break;
+                case 'DevSpace':
+                    log('Installing DevSpace...');
+                    installDevSpace(installCallback);
+                    break;
+                case 'Kubernetes CLI':
+                    log('Installing kubectl...');
+                    installKubectl(installCallback);
+                    break;
+                case 'Minikube CLI':
+                    log('Installing Minikube...');
+                    installMinikube(installCallback);
+                    break;
+                case 'Minikube':
+                    log('Launching Minikube...');
+                    installMinikubeDeps(installCallback);
+                    break;
+                case 'Minikube Tunnel':
+                    log('Launching Minikube Tunnel...');
+                    launchMinikubeTunnel(installCallback);
+                    break;
+                default:
+                    log(`No installation logic defined for ${dep}`);
+            }
+        });
+    } else {
+
+        log('All dependencies are installed.');
+        global.state.installation.installing = false;
+        global.state.installation.allow = true;
+        global.state.installation.svc = [];
+        global.state.installation.c = 0;
+
+        if (document.querySelector('.block-ui')) new Home();
+    }
+}
+
+function installCallback(data) {
+
+    if (global.state.installation.timeout) clearTimeout(global.state.installation.timeout)
+
+    global.state.installation.timeout = setTimeout(() => { checkEnvironment(); }, 1000);
+
+    if (!data) return;
+
+    log(data)
+}
+
+function installKubectl(installCallback) {
+    try {
+        if (os.platform() === 'win32') {
+            log('choco install kubernetes-cli');
+            execSync('choco install kubernetes-cli', { stdio: 'inherit' });
+        } else if (os.platform() === 'darwin') {
+            log('brew install kubectl');
+            execSync('brew install kubectl', { stdio: 'inherit' });
+        } else if (os.platform() === 'linux') {
+            log('kubectl install linux');
+            execSync('curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl', { stdio: 'inherit' });
+        }
+        installCallback(null);
+    } catch (error) {
+        installCallback(error);
+    }
+}
+
+function installDevSpace(installCallback) {
+    try {
+        if (os.platform() === 'win32') {
+            execSync('choco install devspace', { stdio: 'inherit' });
+        } else if (os.platform() === 'darwin') {
+            execSync('brew install devspace', { stdio: 'inherit' });
+        } else if (os.platform() === 'linux' && os.arch() === 'x64') {
+            execSync('curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-amd64" && sudo install -c -m 0755 devspace /usr/local/bin', { stdio: 'inherit' });
+        } else if (os.platform() === 'linux' && os.arch() === 'arm64') {
+            execSync('curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-arm64" && sudo install -c -m 0755 devspace /usr/local/bin', { stdio: 'inherit' });
+        }
+        installCallback(null);
+    } catch (error) {
+        installCallback(error);
+    }
+}
+
+function installHomebrew(installCallback) {
+    execSync('curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash', (error, stdout, stderr) => {
+        if (error) {
+            installCallback(error)
+            log(`Error installing Homebrew: ${stderr}`);
+        } else {
+            log('Homebrew installed successfully.');
+        }
+    });
+}
+
+function installMinikube(installCallback) {
+    log('installMinikube on ' + os.platform() + ' ' + os.arch());
+    if (os.platform() === 'win32') {
+        execSync('choco install minikube', (error, stdout, stderr) => { installCallback(error ? stderr : stdout); });
+    } else if (os.platform() === 'darwin') {
+        log('brew install minikube');
+        execSync('brew install minikube', (error, stdout, stderr) => { installCallback(error ? stderr : stdout); });
+    } else if (os.platform() === 'linux' && os.arch() === 'x64') {
+        execSync('curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64 && sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64', (error, stdout, stderr) => { installCallback(error ? stderr : stdout); });
+    } else if (os.platform() === 'linux' && os.arch() === 'arm64') {
+        execSync('curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-arm64 && sudo install minikube-linux-arm64 /usr/local/bin/minikube && rm minikube-linux-arm64', (error, stdout, stderr) => { installCallback(error ? stderr : stdout); });
+    }
+    installMinikubeDeps(installCallback);
+}
+
+function installMinikubeDeps(installCallback) {
+    exec(`${getMinukubePath()} status`, (error, stdout, stderr) => {
         if (stdout.includes('host: Running') && stdout.includes('kubelet: Running') && stdout.includes('apiserver: Running')) {
+
             log('Minikube is already running.');
 
             // minikube make sure essential addons are enabled
@@ -196,82 +265,56 @@ export function checkEnvironment() {
 
         } else {
             log('Starting Minikube...');
-            exec('minikube start', (err, out, errOut) => {
+            exec(`${getMinukubePath()} start`, { shell: true }, (err, out, errOut) => {
                 if (err) {
+
+                    if (errOut.includes('RSRC_DOCKER_STORAGE')) warning('RSRC_DOCKER_STORAGE', errOut)
+
                     log('Error starting Minikube: ' + errOut);
                 } else {
+
                     log('Minikube started successfully.');
 
                     // start minikube tunnel
-                    exec('pgrep -f "minikube tunnel"', (error, stdout, stderr) => {
-                        if (!stdout) {
-                            log('Starting minikube tunnel...');
-                            // TODO - check for windows and linux
-                            exec(`osascript -e 'do shell script "minikube tunnel" with administrator privileges'`,
-                                (error, stdout, stderr) => {
-                                    log('Minikube out: ' + stdout)
-                                    if (error) {
-                                        log('Error starting minikube tunnel: ' + error);
-                                    } else {
-                                        log('Minikube tunnel started successfully.');
-                                    }
-                                });
-                        } else {
-                            log('Minikube tunnel is already running.');
-                        }
-                    });
+                    launchMinikubeTunnel(installCallback);
                 }
             });
         }
     });
-
-
-    // }
 }
 
-function installKubectl(cb, callback_response) {
-    if (os.platform() === 'win32') {
-        log('choco install kubernetes-cli');
-        run_script('choco install kubernetes-cli', [], cb, 0, callback_response);
-    } else if (os.platform() === 'darwin') {
-        log('brew install kubectl');
-        run_script('brew install kubectl', [], cb, 0, callback_response);
-    } else if (os.platform() === 'linux') {
-        log('kubectl install linux');
-        run_script('curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl', [], cb, 0, callback_response);
-    }
+function launchMinikubeTunnel(installCallback) {
+
+    exec('pgrep -f "minikube tunnel"', { shell: true }, (error, stdout, stderr) => {
+        if (!stdout) {
+            log('Starting minikube tunnel...');
+            // TODO - check for windows and linux
+            exec(`osascript -e 'do shell script "minikube tunnel" with administrator privileges'`,
+                { shell: true },
+                (error, stdout, stderr) => {
+                    log('Minikube out: ' + stdout)
+                    if (error) {
+                        log('Error starting minikube tunnel: ' + error);
+
+                        installCallback(error);
+                    } else {
+                        log('Minikube tunnel started successfully.');
+                    }
+                });
+        } else {
+            log('Minikube tunnel is already running.');
+        }
+    });
 }
 
-function installDevSpace(cb, callback_response) {
-    if (os.platform() === 'win32') {
-        run_script('choco install devspace', [], cb, 0, callback_response);
-    } else if (os.platform() === 'darwin') {
-        run_script('brew install devspace', [], cb, 0, callback_response);
-    } else if (os.platform() === 'linux' && os.arch() === 'x64') {
-        run_script('curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-amd64" && sudo install -c -m 0755 devspace /usr/local/bin', [], cb, 0, callback_response);
-    } else if (os.platform() === 'linux' && os.arch() === 'arm64') {
-        run_script('curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-arm64" && sudo install -c -m 0755 devspace /usr/local/bin', [], cb, 0, callback_response);
-    }
-}
+function blockUI() {
 
-function installMinikube(cb, callback_response) {
-    log('installMinikube on ' + os.platform() + ' ' + os.arch());
-    if (os.platform() === 'win32') {
-        exec('choco install minikube', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
-    } else if (os.platform() === 'darwin') {
-        log('brew install minikube');
-        exec('brew install minikube', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
-    } else if (os.platform() === 'linux' && os.arch() === 'x64') {
-        exec('curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64 && sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
-    } else if (os.platform() === 'linux' && os.arch() === 'arm64') {
-        exec('curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-arm64 && sudo install minikube-linux-arm64 /usr/local/bin/minikube && rm minikube-linux-arm64', (error, stdout, stderr) => { callback_response(error ? stderr : stdout); });
-    }
-}
-
-function blockUI(status) {
     global.state.ui = false;
     document.querySelector('body').innerHTML = `
-        <nav class="navbar navbar-expand-md navbar-light fixed-top bg-white shadow-sm">
+        <div class="container">
+            <div class="app-warnings p-edit"></div>
+        </div>
+        <nav class="navbar navbar-expand-md navbar-light fixed-top bg-white shadow-sm block-ui">
             <div class="container">
                 <div class="d-flex align-items-center">
                     <a class="navbar-brand nav-back d-flex align-items-center me-sm-2 me-1" href="https://dashboard.kenzap.cloud">
@@ -281,19 +324,8 @@ function blockUI(status) {
                         <img style="max-height: 23px;" src="https://cdn.kenzap.com/logo.svg" alt="kenzap logo">
                     </a>
                     <div class="ms-sm-2 ms-0 dropdown d-none">
-                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0 h-space" type="button" id="spaceSelect" data-bs-toggle="dropdown" aria-expanded="false" data-id="1000000">K-Space</button>
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0 h-space" type="button" id="spaceSelect" data-bs-toggle="dropdown" aria-expanded="false" data-id="1000000"></button>
                         <ul class="dropdown-menu spaceSelectList" aria-labelledby="spaceSelect">
-                            <li><a data-id="1000000" class="spw dropdown-item" href="#">K-Space</a></li>
-                            <li><a data-id="1000409" class="spw dropdown-item" href="#">Pasha</a></li>
-                            <li><a data-id="1000452" class="spw dropdown-item" href="#">Daniel Demo</a></li>
-                            <li><a data-id="1001819" class="spw dropdown-item" href="#">World Athletics Relays 2023</a></li>
-                            <li><a data-id="1001964" class="spw dropdown-item" href="#">SICC </a></li>
-                            <li><a data-id="1002078" class="spw dropdown-item" href="#">Mookata</a></li>
-                            <li><a data-id="1002170" class="spw dropdown-item" href="#">Skarda Design</a></li>
-                            <li><a data-id="1002968" class="spw dropdown-item" href="#">ALLEAZE Tech</a></li>
-                            <li><a data-id="1002991" class="spw dropdown-item" href="#">lakshan ks</a></li>
-                            <li><a data-id="1003376" class="spw dropdown-item" href="#">Concert Hall</a></li>
-                            <li><a data-id="1003603" class="spw dropdown-item" href="#">MyTicket</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a data-id="manage" class="spw dropdown-item" href="#">Manage</a></li>
                         </ul>
@@ -321,9 +353,9 @@ function blockUI(status) {
         </div>
         <div class="container mt-3">
             <h2>${__html('Please Wait')}</h2>
-            <p>${__html('Installing dependencies:')}</p>
+            <p>${__html('Checking dependencies')}</p>
             <ul>
-                ${status.svc.map(s => `<li class="open-dep-link po" data-link="${attr(s.link)}">${s.name}</li>`).join('')}
+                ${global.state.installation.svc.map(s => `<li class="open-dep-link po" data-link="${attr(s.link)}"><a href='#'>${s.name}</a> ${s.note.length ? " - " + s.note + "" : ""}</li>`).join('')}
             </ul>
             <div class="row" style="height:50%; display:block; margin:0px auto 0 auto;">
                 <button type="button" class="btn btn-primary btn-lg btn-refresh position-absolute" style="width:90%;bottom:32px;margin-left: auto;margin-right: auto;left: 0;right: 0;text-align: center;">
@@ -332,73 +364,73 @@ function blockUI(status) {
             </div>
         </div>
     `;
+
+    onClick(".open-dep-link", e => {
+        e.preventDefault();
+        require('electron').shell.openExternal(e.currentTarget.dataset.link);
+    });
+
+    onClick(".btn-refresh", e => {
+        e.preventDefault();
+        checkEnvironment();
+        // new AppList();
+    });
 }
 
-function showWarning(status) {
-    global.state.ui = false;
-    document.querySelector('body').innerHTML = `
-        <nav class="navbar navbar-expand-md navbar-light fixed-top bg-white shadow-sm">
-            <div class="container">
-                <div class="d-flex align-items-center">
-                    <a class="navbar-brand nav-back d-flex align-items-center me-sm-2 me-1" href="https://dashboard.kenzap.cloud">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#212529" class="bi bi-arrow-left me-2 d-none" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"></path>
-                        </svg>
-                        <img style="max-height: 23px;" src="https://cdn.kenzap.com/logo.svg" alt="kenzap logo">
-                    </a>
-                    <div class="ms-sm-2 ms-0 dropdown d-none">
-                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0 h-space" type="button" id="spaceSelect" data-bs-toggle="dropdown" aria-expanded="false" data-id="1000000">K-Space</button>
-                        <ul class="dropdown-menu spaceSelectList" aria-labelledby="spaceSelect">
-                            <li><a data-id="1000000" class="spw dropdown-item" href="#">K-Space</a></li>
-                            <li><a data-id="1000409" class="spw dropdown-item" href="#">Pasha</a></li>
-                            <li><a data-id="1000452" class="spw dropdown-item" href="#">Daniel Demo</a></li>
-                            <li><a data-id="1001819" class="spw dropdown-item" href="#">World Athletics Relays 2023</a></li>
-                            <li><a data-id="1001964" class="spw dropdown-item" href="#">SICC </a></li>
-                            <li><a data-id="1002078" class="spw dropdown-item" href="#">Mookata</a></li>
-                            <li><a data-id="1002170" class="spw dropdown-item" href="#">Skarda Design</a></li>
-                            <li><a data-id="1002968" class="spw dropdown-item" href="#">ALLEAZE Tech</a></li>
-                            <li><a data-id="1002991" class="spw dropdown-item" href="#">lakshan ks</a></li>
-                            <li><a data-id="1003376" class="spw dropdown-item" href="#">Concert Hall</a></li>
-                            <li><a data-id="1003603" class="spw dropdown-item" href="#">MyTicket</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a data-id="manage" class="spw dropdown-item" href="#">Manage</a></li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="d-flex flex-column align-items-end" id="navbarCollapse">
-                    <ul class="navbar-nav me-auto mb-0 mb-md-0">
-                        <li class="nav-item dropdown">
-                            <a class="" href="https://account.kenzap.com/profile/" id="nav-account" data-bs-toggle="dropdown" aria-expanded="false">
-                                <img src="https://account.kenzap.com/images/default_avatar.jpg" style="height:40px;width:40px;border-radius:50%;" alt="profile">
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end" data-popper-placement="left-start" aria-labelledby="nav-account" style="position: absolute;">
-                                <li><a class="dropdown-item open-dashboard" href="https://dashboard.kenzap.cloud/">${__html('Dashboard')}</a></li>
-                                <li><a class="dropdown-item open-profile" href="https://account.kenzap.cloud/profile/">${__html('My profile')}</a></li>
-                                <li><a class="dropdown-item choose-lang d-none" href="#">Language</a></li>
-                                <li><a class="dropdown-item open-auth" href="https://auth.kenzap.com">Sign in</a></li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-        <div>
-            ${placeholder()}
-        </div>
-        <div class="container mt-3">
-            <h2>${__html('Hey!')}</h2>
-            <p>${__html('Please make sure the following dependencies are running:')}</p>
-            <ul>
-                ${status.svc.map(s => `<li class="open-dep-link po" data-link="${attr(s.link)}">${s.name}</li>`).join('')}
-            </ul>
-            <div class="row" style="height:50%; display:block; margin:0px auto 0 auto;">
-                <button type="button" class="btn btn-primary btn-lg btn-refresh position-absolute" style="width:90%;bottom:32px;margin-left: auto;margin-right: auto;left: 0;right: 0;text-align: center;">
-                    ${__html("Refresh")}
-                </button>
-            </div>
-        </div>
-    `;
-}
+// function showWarning() {
+//     global.state.ui = false;
+//     document.querySelector('body').innerHTML = `
+//         <nav class="navbar navbar-expand-md navbar-light fixed-top bg-white shadow-sm">
+//             <div class="container">
+//                 <div class="d-flex align-items-center">
+//                     <a class="navbar-brand nav-back d-flex align-items-center me-sm-2 me-1" href="https://dashboard.kenzap.cloud">
+//                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#212529" class="bi bi-arrow-left me-2 d-none" viewBox="0 0 16 16">
+//                             <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"></path>
+//                         </svg>
+//                         <img style="max-height: 23px;" src="https://cdn.kenzap.com/logo.svg" alt="kenzap logo">
+//                     </a>
+//                     <div class="ms-sm-2 ms-0 dropdown d-none">
+//                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0 h-space" type="button" id="spaceSelect" data-bs-toggle="dropdown" aria-expanded="false" data-id="1000000">K-Space</button>
+//                         <ul class="dropdown-menu spaceSelectList" aria-labelledby="spaceSelect">
+//                             <li><hr class="dropdown-divider"></li>
+//                             <li><a data-id="manage" class="spw dropdown-item" href="#">Manage</a></li>
+//                         </ul>
+//                     </div>
+//                 </div>
+//                 <div class="d-flex flex-column align-items-end" id="navbarCollapse">
+//                     <ul class="navbar-nav me-auto mb-0 mb-md-0">
+//                         <li class="nav-item dropdown">
+//                             <a class="" href="https://account.kenzap.com/profile/" id="nav-account" data-bs-toggle="dropdown" aria-expanded="false">
+//                                 <img src="https://account.kenzap.com/images/default_avatar.jpg" style="height:40px;width:40px;border-radius:50%;" alt="profile">
+//                             </a>
+//                             <ul class="dropdown-menu dropdown-menu-end" data-popper-placement="left-start" aria-labelledby="nav-account" style="position: absolute;">
+//                                 <li><a class="dropdown-item open-dashboard" href="https://dashboard.kenzap.cloud/">${__html('Dashboard')}</a></li>
+//                                 <li><a class="dropdown-item open-profile" href="https://account.kenzap.cloud/profile/">${__html('My profile')}</a></li>
+//                                 <li><a class="dropdown-item choose-lang d-none" href="#">Language</a></li>
+//                                 <li><a class="dropdown-item open-auth" href="https://auth.kenzap.com">Sign in</a></li>
+//                             </ul>
+//                         </li>
+//                     </ul>
+//                 </div>
+//             </div>
+//         </nav>
+//         <div>
+//             ${placeholder()}
+//         </div>
+//         <div class="container mt-3">
+//             <h2>${__html('Hey!')}</h2>
+//             <p>${__html('Please make sure the following dependencies are running:')}</p>
+//             <ul>
+//                 ${global.state.installation.svc.map(s => `<li class="open-dep-link po" data-link="${attr(s.link)}">${s.name}</li>`).join('')}
+//             </ul>
+//             <div class="row" style="height:50%; display:block; margin:0px auto 0 auto;">
+//                 <button type="button" class="btn btn-primary btn-lg btn-refresh position-absolute" style="width:90%;bottom:32px;margin-left: auto;margin-right: auto;left: 0;right: 0;text-align: center;">
+//                     ${__html("Refresh")}
+//                 </button>
+//             </div>
+//         </div>
+//     `;
+// }
 
 /**
  * Placeholder for the UI

@@ -218,3 +218,7 @@ h2, h3, h4, h5,
 .app-settings .form-control{
     border-width: 0!important;
 }
+
+.app-warnings:empty{
+  display: none;
+}

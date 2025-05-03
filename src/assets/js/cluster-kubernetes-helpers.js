@@ -3,6 +3,7 @@
 import global from './global.js'
 import { __html, toast, getDefaultAppPath, saveKenzapSettings, getKenzapSettings, getToken, log } from './helpers.js'
 import { run_ssh_script, run_script } from './dev-tools.js'
+import { getTemplatesPath } from './dev-tools.js'
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';

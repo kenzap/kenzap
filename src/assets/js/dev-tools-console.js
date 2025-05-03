@@ -123,7 +123,7 @@ export class DevToolsConsole {
             }
         );
 
-        log(`echo "cd ${cache.path} && devspace -n ${app.id} enter --config=${file} --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh; chmod +x /tmp/console.sh; open -a Terminal /tmp/console.sh`)
+        // log(`echo "cd ${cache.path} && devspace -n ${app.id} enter --config=${file} --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh; chmod +x /tmp/console.sh; open -a Terminal /tmp/console.sh`)
 
         if (kubeconfig != "") child_process.spawn(
             `echo "cd ${cache.path} && devspace -n ${app.id} ${container.length ? '-c ' + container : ""} enter --config=${file} --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh; chmod +x /tmp/console.sh; open -a Terminal /tmp/console.sh`,

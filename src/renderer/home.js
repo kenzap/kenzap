@@ -31,10 +31,10 @@ export class Home {
         ]
 
         // for faster AppList page debugging
-        new AppList(global);
+        // new AppList(global);
 
         // load this page
-        // this.init();
+        this.init();
     }
 
     init() {

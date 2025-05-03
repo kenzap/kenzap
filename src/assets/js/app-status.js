@@ -63,15 +63,20 @@ export class AppStatus {
 
             // log("Edge app", app);
 
-            let cb = () => { };
+            let cb = (output) => {
+                // console.log(output); 
+
+            };
 
             // TODO add support for multi cluster state
             // console.log('cd '+this.cache.path+' && kubectl get deployments --kubeconfig='+kubeconfig+' -o=yaml');
             let kubectl = getKubectlPath();
 
+            // log('cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' -o=yaml');
+
             if (kubeconfig) global.state.dev[app.id].proc = run_script('cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' -o=yaml', [], cb, false);
 
-            if (!kubeconfig) global.state.dev[app.id].proc = run_script(' kubectl config use-context minikube && cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' -o=yaml', [], cb, false);
+            if (!kubeconfig) global.state.dev[app.id].proc = run_script(' ' + kubectl + ' config use-context minikube && cd ' + this.cache.path + ' && ' + kubectl + ' get deployments -n ' + app.id + ' -o=yaml', [], cb, false);
 
             global.state.dev[app.id].proc.stdout.on('data', (data) => {
 
@@ -193,7 +198,7 @@ export class AppStatus {
             this.showAlert(app);
         }
 
-        log("event " + cache.event);
+        // log("event " + cache.event);
 
         let kubeconfig = getAppKubeconfig(id);
 

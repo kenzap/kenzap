@@ -5,6 +5,7 @@ import { Actions } from './app-actions.js'
 import { AppCreateTitle } from './app-create-title.js'
 import { AppCreateCluster } from './app-create-cluster.js'
 import { getAppRegistry } from './app-registry-helpers.js'
+import { getTemplatesPath } from './dev-tools.js'
 import * as ace from 'ace-builds/src-noconflict/ace';
 import 'ace-builds/webpack-resolver'
 import 'ace-builds/src-noconflict/theme-monokai'
@@ -135,7 +136,10 @@ export class AppCreateImage {
 
         if (!this.app.image) { this.loadEmptyImage(); return; }
 
-        const appsPath = path.join(__dirname, "..", "templates", "apps", this.app.image);
+        const appsPath = path.join(getTemplatesPath(), "apps", this.app.image);
+
+        console.log(appsPath);
+
         const folders = fs.readdirSync(appsPath).filter(folder => {
             const folderPath = path.join(appsPath, folder);
             return fs.statSync(folderPath).isDirectory();

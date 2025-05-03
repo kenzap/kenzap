@@ -5,7 +5,7 @@ import { __html, toast, getDefaultAppPath, getKenzapSettings, cacheSettings, con
 import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
 import { https, v2 } from './app-registry-helpers.js'
 import { Endpoints } from './app-endpoints.js'
-import { run_script } from './dev-tools.js'
+import { run_script, getTemplatesPath } from './dev-tools.js'
 import fs, { unlink } from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
@@ -118,7 +118,7 @@ export function provisionClusterUserLocal(app, cb) {
     let step3 = (response) => {
 
         // create user role binding
-        let certRequest = fs.readFileSync(path.join(__dirname, "..", "templates", "sh", "cert_request.yaml")).toString();
+        let certRequest = fs.readFileSync(path.join(getTemplatesPath(), "sh", "cert_request.yaml")).toString();
 
         // consoleUI(certRequest);
 
@@ -164,7 +164,7 @@ export function provisionClusterUserLocal(app, cb) {
         app.keyData = fs.readFileSync(path.join(app.path, `${app.slug}.key`)).toString('base64').replace(/\n/g, '');
 
         // create user role binding
-        let userRolesTemplate = fs.readFileSync(path.join(__dirname, "..", "templates", "sh", "user-roles.yaml"), 'utf8');
+        let userRolesTemplate = fs.readFileSync(path.join(getTemplatesPath(), "sh", "user-roles.yaml"), 'utf8');
         userRolesTemplate = userRolesTemplate.replace(/kenzap-slug/g, app.slug);
         userRolesTemplate = userRolesTemplate.replace(/kenzap-namespace/g, app.slug);
         fs.writeFileSync(path.join(app.path, `${app.slug}-user-roles.yaml`), userRolesTemplate);
@@ -173,7 +173,7 @@ export function provisionClusterUserLocal(app, cb) {
 
     let step9 = () => {
 
-        let userRoleBindingTemplate = fs.readFileSync(path.join(__dirname, "..", "templates", "sh", "user-role-binding.yaml"), 'utf8');
+        let userRoleBindingTemplate = fs.readFileSync(path.join(getTemplatesPath(), "sh", "user-role-binding.yaml"), 'utf8');
         userRoleBindingTemplate = userRoleBindingTemplate.replace(/kenzap-slug/g, app.slug);
         userRoleBindingTemplate = userRoleBindingTemplate.replace(/kenzap-namespace/g, app.slug);
         fs.writeFileSync(path.join(app.path, `${app.slug}-user-role-binding.yaml`), userRoleBindingTemplate);
@@ -258,7 +258,7 @@ export function createLocalAppLocal(app, cb) {
     cleanUpFiles(app);
 
     // copy app template files
-    const templateFolder = path.join(__dirname, "..", "templates", "apps", app.image, app.image_id);
+    const templateFolder = path.join(getTemplatesPath(), "apps", app.image, app.image_id);
     const filesToExclude = ["manifest.json", ".DS_Store"];
     if (fs.existsSync(templateFolder)) {
 
@@ -319,7 +319,7 @@ export function createLocalAppLocal(app, cb) {
     // check if app.yaml is missing
     if (!fs.existsSync(path.join(app.path, "devspace.yaml")) && !fs.readdirSync(app.path).some(file => /^devspace-.*\.yaml$/.test(file))) {
 
-        let devspaceContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "devspace.yaml"), 'utf8');
+        let devspaceContent = fs.readFileSync(path.join(getTemplatesPath(), "app", "devspace.yaml"), 'utf8');
         fs.writeFileSync(path.join(app.path, 'devspace.yaml'), devspaceContent);
         applyActions(app, path.join(app.path, "devspace.yaml"));
     }
@@ -327,7 +327,7 @@ export function createLocalAppLocal(app, cb) {
     // check if app.yaml is missing
     if (!fs.existsSync(path.join(app.path, "app.yaml")) && !fs.readdirSync(app.path).some(file => /^app-.*\.yaml$/.test(file))) {
 
-        let appContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "app.yaml"), 'utf8');
+        let appContent = fs.readFileSync(path.join(getTemplatesPath(), "app", "app.yaml"), 'utf8');
         fs.writeFileSync(path.join(app.path, 'app.yaml'), appContent);
         log("applying rules for app.yaml");
         applyActions(app, path.join(app.path, 'app.yaml'));
@@ -340,7 +340,7 @@ export function createLocalAppLocal(app, cb) {
     if (!fs.existsSync(endpointsPath)) {
 
         // create endpoints.yaml
-        let endpointsContent = fs.readFileSync(path.join(__dirname, "..", "templates", "app", "endpoints.yaml"), 'utf8');
+        let endpointsContent = fs.readFileSync(path.join(getTemplatesPath(), "app", "endpoints.yaml"), 'utf8');
         fs.writeFileSync(endpointsPath, endpointsContent);
         applyActions(app, endpointsPath);
     }

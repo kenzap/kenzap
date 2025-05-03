@@ -1,6 +1,8 @@
 'use strict';
 
 import { __html, toast, getSetting, API, hideLoader, getDefaultAppPath } from '../../assets/js/helpers.js'
+import { getTemplatesPath } from './dev-tools.js'
+
 import fs from "fs"
 
 export function checkConfigs(id) {

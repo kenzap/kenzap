@@ -1,6 +1,6 @@
 {
-  "name": "MySQL Server",
-  "slug": "mysql",
+  "name": "PostgreSQL Server",
+  "slug": "PostgreSQL",
   "version": "1.0.0",
   "license": "LGPL-3.0-or-later"
 }

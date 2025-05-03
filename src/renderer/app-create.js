@@ -101,11 +101,6 @@ export class AppCreate {
         hideLoader();
 
         this.listeners();
-
-        // // TODO remove
-        // const templateFolder = path.join(__dirname, "..", "templates", "apps", this.app.image, this.app.id);
-
-        // log('Template Folder', templateFolder);
     }
 
     view() {
@@ -358,7 +353,7 @@ export class AppCreate {
         let step3 = (response) => {
 
             // create user role binding
-            let certRequest = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "sh", "cert_request.yaml")).toString();
+            let certRequest = fs.readFileSync(path.join(getTemplatesPath(), "sh", "cert_request.yaml")).toString();
 
             // this.console(certRequest);
 
@@ -402,7 +397,7 @@ export class AppCreate {
             data.keyData = fs.readFileSync(path.join(data.path, `${data.slug}.key`)).toString('base64').replace(/\n/g, '');
 
             // create user role binding
-            let userRolesTemplate = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "sh", "user-roles.yaml"), 'utf8');
+            let userRolesTemplate = fs.readFileSync(path.join(getTemplatesPath(), "sh", "user-roles.yaml"), 'utf8');
             userRolesTemplate = userRolesTemplate.replace(/kenzap-slug/g, data.slug);
             userRolesTemplate = userRolesTemplate.replace(/kenzap-namespace/g, data.slug);
             fs.writeFileSync(path.join(data.path, `${data.slug}-user-roles.yaml`), userRolesTemplate);
@@ -411,7 +406,7 @@ export class AppCreate {
 
         let step9 = () => {
 
-            let userRoleBindingTemplate = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "sh", "user-role-binding.yaml"), 'utf8');
+            let userRoleBindingTemplate = fs.readFileSync(path.join(getTemplatesPath(), "sh", "user-role-binding.yaml"), 'utf8');
             userRoleBindingTemplate = userRoleBindingTemplate.replace(/kenzap-slug/g, data.slug);
             userRoleBindingTemplate = userRoleBindingTemplate.replace(/kenzap-namespace/g, data.slug);
             fs.writeFileSync(path.join(data.path, `${data.slug}-user-role-binding.yaml`), userRoleBindingTemplate);
@@ -456,7 +451,7 @@ export class AppCreate {
         // check if app.yaml is missing
         if (!fs.existsSync(path.join(data.path, "devspace.yaml"))) {
 
-            let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "devspace.yaml"), 'utf8');
+            let app = fs.readFileSync(path.join(getTemplatesPath(), "app", "devspace.yaml"), 'utf8');
             fs.writeFileSync(path.join(data.path, 'devspace.yaml'), app);
             this.applyActions(data, path.join(data.path, "devspace.yaml"));
         }
@@ -464,7 +459,7 @@ export class AppCreate {
         // check if app.yaml is missing
         if (!fs.existsSync(path.join(data.path, "app.yaml"))) {
 
-            let app = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "app.yaml"), 'utf8');
+            let app = fs.readFileSync(path.join(getTemplatesPath(), "app", "app.yaml"), 'utf8');
             fs.writeFileSync(path.join(data.path, 'app.yaml'), app);
             log("applying rules for app.yaml");
             this.applyActions(data, path.join(data.path, 'app.yaml'));
@@ -477,13 +472,13 @@ export class AppCreate {
         if (!fs.existsSync(endpointsPath)) {
 
             // create endpoints.yaml
-            let endpoints = fs.readFileSync(path.join(__dirname, "..", "assets", "templates", "app", "endpoints.yaml"), 'utf8');
+            let endpoints = fs.readFileSync(path.join(getTemplatesPath(), "app", "endpoints.yaml"), 'utf8');
             fs.writeFileSync(endpointsPath, endpoints);
             this.applyActions(data, endpointsPath);
         }
 
         // copy app template files
-        const templateFolder = path.join(__dirname, "..", "assets", "templates", "apps", this.app.image, this.app.id);
+        const templateFolder = path.join(getTemplatesPath(), "apps", this.app.image, this.app.id);
         const filesToExclude = ["manifest.json", ".DS_Store"];
         if (fs.existsSync(templateFolder)) {
 
