@@ -7,7 +7,7 @@ import { deleteApp, DevTools, toggleDepIconState } from '../assets/js/dev-tools.
 import { checkEnvironment } from '../assets/js/dev-environment.js'
 import { NavigationHeader } from '../assets/js/navigation-header.js'
 import { VersionControl } from '../assets/js/version-control.js'
-import { getAppList, getAppIcon } from '../assets/js/app-list-helpers.js'
+import { getAppList, getAppIcon, getFirstEndpoint } from '../assets/js/app-list-helpers.js'
 import { AppProjects } from '../assets/js/app-projects.js'
 import { AppStatus } from '../assets/js/app-status.js'
 // import { AppCreate } from './app-create.js'
@@ -194,25 +194,8 @@ export class AppList {
 
                 let setting = getSetting(app.id);
 
-                let ea = app.endpoints ? Object.keys(app.endpoints) : [];
-
-                let host = ea.length ? app.endpoints[ea[0]] ? (app.endpoints[ea[0]].host + ":" + app.endpoints[ea[0]].port) : "" : "";
-
                 if (this.project != "") if (setting.project != this.project) return "";
 
-                // read endpoints
-                if (fs.existsSync(setting.path + require('path').sep + 'endpoints.yaml')) {
-
-                    try {
-
-                        const endpoints = yaml.loadAll(fs.readFileSync(setting.path + require('path').sep + 'endpoints.yaml'), 'utf8');
-                        if (endpoints[0].spec.rules) if (endpoints[0].spec.rules.length) host = "https://" + endpoints[0].spec.rules[0].host;
-
-                    } catch (e) {
-
-                        log(e);
-                    }
-                }
 
                 return `
                                                             <tr>
@@ -232,7 +215,7 @@ export class AppList {
                                                                             <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
                                                                         </svg>
                                                                     </span>
-                                                                    <div class="form-text p-0 m-0" style="font-size:12px;">${html(host ? host : "")} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${attr(host ? host : "")}" class="bi bi-copy po mb-1 ms-1 copy-record ${attr(host ? "" : "d-none")}" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg></div>
+                                                                    <div class="form-text p-0 m-0" style="font-size:12px;">${getFirstEndpoint(app)} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${getFirstEndpoint(app)}" class="bi bi-copy po mb-1 ms-1 copy-record ${attr(getFirstEndpoint(app) ? "" : "d-none")}" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg></div>
                                                                 </td>
                                                                 <td>
                                                                     <div class="${app.status == "unpublished" ? "d-none" : ""} d-flex align-items-center">

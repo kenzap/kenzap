@@ -106,6 +106,27 @@ export function getAppIcon(app) {
 }
 
 /**
+ * Retrieves the first active endpoint from an application.
+ * 
+ * @param {Object} app - The application object containing endpoints information.
+ * @param {Object} [app.endpoints] - Dictionary of endpoints, where keys are endpoint identifiers.
+ * @returns {string} The host URL of the first active endpoint, or an empty string if no endpoints exist.
+ * Returns the public host if active, otherwise returns private host with port if active.
+ */
+export function getFirstEndpoint(app) {
+
+    let ea = app.endpoints ? Object.keys(app.endpoints) : [];
+
+    if (ea.length == 0) return "";
+
+    // console.log("getFirstEndpoint", app.endpoints[ea[0]]);
+
+    if (app.endpoints[ea[0]].active_public) return app.endpoints[ea[0]].host;
+
+    if (app.endpoints[ea[0]].active_private) return app.endpoints[ea[0]].private + ":" + app.endpoints[ea[0]].port;
+}
+
+/**
  * Retrieves the icon for the specified application.
  *  
  * @param {string} app - The application object.

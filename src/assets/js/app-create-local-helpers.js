@@ -77,7 +77,7 @@ export function provisionClusterAppLocal(app, cb) {
 
         // create namespace
         log(`kubectl config use-context minikube && cd ${app.path}; kubectl create namespace ${app.slug}`);
-        run_script(`kubectl config use-context minikube && cd ${app.path}; kubectl create namespace ${app.slug}`, [], () => { consoleUI(`Creating ${app.slug} namespace`); createLocalAppLocal(app, cb); }, 1, (error) => { log('Cluster 5 E: ', error.toString()); provisionClusterUser(app, cb); });
+        run_script(`kubectl config use-context minikube && cd ${app.path}; kubectl create namespace ${app.slug}`, [], () => { consoleUI(`Creating ${app.slug} namespace`); createLocalAppLocal(app, cb); }, 1, (error) => { log('Cluster 5 E: ', error.toString()); });
     }
 
     step1();

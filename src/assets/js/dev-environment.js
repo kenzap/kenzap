@@ -33,8 +33,6 @@ const { exec, execSync } = require('child_process');
  */
 export function checkEnvironment() {
 
-    log('Arch OS: ' + os.arch() + ' OS: ' + os.platform());
-
     // log('Checking environment...');
 
     // log(process.env.PATH);
@@ -44,17 +42,21 @@ export function checkEnvironment() {
     const lastRun = global.state.lastRun || 0;
     const now = Date.now();
 
-    if (now - lastRun < 10000) {
-        // log('Script execution blocked: Please wait at least 1 minute between runs.');
-        if (global.state.installation.c < 3) {
+    if (now - lastRun < 1000 * 120) {
 
-            if (global.state.installation.timeout) clearTimeout(global.state.installation.timeout)
-            global.state.installation.timeout = setTimeout(() => { checkEnvironment(); }, 500);
-        }
+        // log('Script execution blocked: Please wait at least 1 minute between runs.');
+        // if (global.state.installation.c < 3) {
+
+        if (global.state.installation.timeout) clearTimeout(global.state.installation.timeout)
+
+        global.state.installation.timeout = setTimeout(() => { checkEnvironment(); }, 1000 * 120);
+        // }
         return;
     }
 
-    global.state.lastRun = now;
+    log('Checking Environment. Arch OS: ' + os.arch() + ' OS: ' + os.platform());
+
+    // global.state.lastRun = now;
 
     if (!fs.existsSync(kenzapdir)) {
         try {
@@ -148,6 +150,10 @@ export function checkEnvironment() {
                 default:
                     log(`No installation logic defined for ${dep}`);
             }
+
+            // speed up next check
+            // global.state.installation.c = 0;
+            global.state.lastRun = now - 1000 * 30;
         });
     } else {
 
@@ -155,7 +161,9 @@ export function checkEnvironment() {
         global.state.installation.installing = false;
         global.state.installation.allow = true;
         global.state.installation.svc = [];
-        global.state.installation.c = 0;
+        // global.state.installation.c = 0;
+
+        global.state.lastRun = now;
 
         if (document.querySelector('.block-ui')) new Home();
     }
@@ -371,7 +379,12 @@ function blockUI() {
     });
 
     onClick(".btn-refresh", e => {
+
         e.preventDefault();
+
+        global.state.installation.c = 2;
+        global.state.lastRun = Date.now() - 1000 * 60;
+
         checkEnvironment();
         // new AppList();
     });
