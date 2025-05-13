@@ -27,7 +27,7 @@ spec:
                   key: POSTGRES_PASSWORD
           volumeMounts:
             - name: template_slug-storage
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/storage/template_slug
       volumes:
         - name: template_slug-storage
           persistentVolumeClaim:

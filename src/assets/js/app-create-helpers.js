@@ -289,10 +289,20 @@ export function createLocalApp(app, cb) {
     // copy app template files
     const templateFolder = path.join(getTemplatesPath(), "apps", app.image, app.image_id);
     const filesToExclude = ["manifest.json", ".DS_Store"];
+    const filesToOverride = ["app", "devspace"];
     if (fs.existsSync(templateFolder)) {
 
         const files = fs.readdirSync(templateFolder);
         files.forEach(file => {
+
+            // overrdien files are removed
+            filesToOverride.forEach(fileToOverride => {
+                if (file.startsWith(fileToOverride) && file.endsWith('.yaml')) {
+                    if (fs.existsSync(path.join(app.path, fileToOverride + ".yaml"))) {
+                        fs.unlinkSync(path.join(app.path, fileToOverride + ".yaml"));
+                    }
+                }
+            });
 
             log('Copying file:', file);
 

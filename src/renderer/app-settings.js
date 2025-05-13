@@ -17,6 +17,7 @@ import { isPathValid, getAppDetails } from '../assets/js/app-settings-helpers.js
 import { Home } from './home.js'
 import { AppList } from './app-list.js'
 import { DevTools, toggleDepIconState } from '../assets/js/dev-tools.js'
+import { run_script } from '../assets/js/dev-tools.js'
 import slugify from 'slugify'
 import "../assets/libs/gstatic.com_charts_loader.js"
 import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
@@ -345,6 +346,32 @@ export class Settings {
             this.endpoints.save();
 
             this.dockerFile.save();
+
+            // apply other config files
+            const dirContents = fs.readdirSync(data.path);
+            const secretAndPvcFiles = dirContents.filter(file =>
+                (file.startsWith('secret-') || file.startsWith('pvc-')) &&
+                file.endsWith('.yaml')
+            );
+
+            if (secretAndPvcFiles.length > 0) {
+                // For each cluster in the app's configuration
+                data.clusters.forEach(cluster => {
+
+                    const kubeconfigParam = cluster === 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`;
+
+                    // Apply each secret and pvc file
+                    secretAndPvcFiles.forEach(file => {
+
+                        run_script(`cd ${data.path} && kubectl apply -f ${file} ${kubeconfigParam}`, [], () => { });
+
+                        // const command = `cd ${data.path} && kubectl apply -f ${file} ${kubeconfigParam}`;
+                        // ipcRenderer.send('run-command', command);
+                        log(`Applying ${file} to cluster ${cluster}`);
+                    });
+                });
+            }
+            // run_script(`cd ${cache.path} && kubectl apply -f endpoints.yaml ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], cb);
 
             cacheSettings(data);
 
