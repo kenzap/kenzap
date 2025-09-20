@@ -1,21 +1,11 @@
 
-import global from "./global.js"
-import { shell } from 'electron' // deconstructing assignment
-import { __html, attr, onClick, simulateClick, getSetting, toast, kenzapdir, showLoader, hideLoader, parseError, log } from './helpers.js'
-import child_process from "child_process"
-import terminate from "terminate"
 import fs from "fs"
-import yaml from 'js-yaml';
-import { AppList } from "../../renderer/app-list.js"
+import * as os from 'os'
 import { Home } from "../../renderer/home.js"
-import { getAppKubeconfig } from './app-status-helpers.js'
-import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_script, getMinukubePath } from './dev-tools.js'
+import { getMinukubePath } from './dev-tools.js'
+import global from "./global.js"
+import { __html, attr, kenzapdir, log, onClick, parseError } from './helpers.js'
 import { warning } from './warnings.js'
-import { Client as ssh } from 'ssh2';
-import * as os from 'os';
-import * as path from 'path';
-import { set } from "ace-builds/src-noconflict/ace.js"
 const { exec, execSync } = require('child_process');
 
 /**
@@ -76,9 +66,9 @@ export function checkEnvironment() {
         brew: ['brew --version', 'Homebrew', 'https://brew.sh/', 'Installing Homebrew..'],
         devspace: ['devspace --version', 'DevSpace', 'https://www.devspace.sh/docs/getting-started/installation?x0=3', 'Installing DevSpace CLI..'],
         kubectl: ['kubectl version --client', 'Kubernetes CLI', 'https://kubernetes.io/docs/tasks/tools/', 'Installing Kubernetes CLI..'],
-        minikube: ['minikube version', 'Minikube CLI', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Installing Minikube CLI..'],
-        minikube_status: ['minikube status', 'Minikube', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Waiting for Minikube to start..'],
-        minikube_tunnel: ['pgrep -f "minikube tunnel"', 'Minikube Tunnel', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Waiting for Minikube Tunnel to start..'],
+        // minikube: ['minikube version', 'Minikube CLI', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Installing Minikube CLI..'],
+        // minikube_status: ['minikube status', 'Minikube', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Waiting for Minikube to start..'],
+        // minikube_tunnel: ['pgrep -f "minikube tunnel"', 'Minikube Tunnel', 'https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download', 'Waiting for Minikube Tunnel to start..'],
     };
 
     const missing = [];

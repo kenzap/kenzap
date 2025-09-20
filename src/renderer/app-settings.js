@@ -1,30 +1,29 @@
 'use strict';
 
-import { ipcRenderer } from 'electron'
-import global from '../assets/js/global.js'
-import { __html, html, attr, toast, initBreadcrumbs, cacheSettings, getDefaultAppPath, getKenzapSettings, hideLoader, log } from '../assets/js/helpers.js'
-import { AppClusterPicker } from '../assets/js/app-cluster-picker.js'
-import { DockerFile } from '../assets/js/app-docker-file.js'
-import { Endpoints } from '../assets/js/app-endpoints.js'
-import { AppRegistry } from '../assets/js/app-registry.js'
-import { NavigationHeader } from '../assets/js/navigation-header.js'
-import { getAppList, getAppIcon } from '../assets/js/app-list-helpers.js'
-import { AppStats } from '../assets/js/app-stats.js'
-import { AppResources } from '../assets/js/app-resources.js'
-import { AppStatus } from '../assets/js/app-status.js'
-import { Footer } from '../assets/js/app-footer.js'
-import { isPathValid, getAppDetails } from '../assets/js/app-settings-helpers.js'
-import { Home } from './home.js'
-import { AppList } from './app-list.js'
-import { DevTools, toggleDepIconState } from '../assets/js/dev-tools.js'
-import { run_script } from '../assets/js/dev-tools.js'
-import slugify from 'slugify'
-import "../assets/libs/gstatic.com_charts_loader.js"
-import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
-import "../assets/scss/app.css"
-import "../assets/scss/settings.css"
+import { ipcRenderer } from 'electron';
+import fs from "fs";
 import * as path from 'path';
-import fs from "fs"
+import slugify from 'slugify';
+import { AppClusterPicker } from '../assets/js/app-cluster-picker.js';
+import { DockerFile } from '../assets/js/app-docker-file.js';
+import { Endpoints } from '../assets/js/app-endpoints.js';
+import { Footer } from '../assets/js/app-footer.js';
+import { getAppIcon, getAppList } from '../assets/js/app-list-helpers.js';
+import { AppRegistry } from '../assets/js/app-registry.js';
+import { AppResources } from '../assets/js/app-resources.js';
+import { getAppDetails, isPathValid } from '../assets/js/app-settings-helpers.js';
+import { AppStats } from '../assets/js/app-stats.js';
+import { AppStatus } from '../assets/js/app-status.js';
+import { DevTools, run_script, toggleDepIconState } from '../assets/js/dev-tools.js';
+import global from '../assets/js/global.js';
+import { __html, attr, cacheSettings, getDefaultAppPath, getKenzapSettings, hideLoader, html, initBreadcrumbs, log, toast } from '../assets/js/helpers.js';
+import { NavigationHeader } from '../assets/js/navigation-header.js';
+import "../assets/libs/bootstrap.5.0.2.1.0.min.css";
+import "../assets/libs/gstatic.com_charts_loader.js";
+import "../assets/scss/app.css";
+import "../assets/scss/settings.css";
+import { AppList } from './app-list.js';
+import { Home } from './home.js';
 
 /** 
  * Settings class. App settings page.

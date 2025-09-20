@@ -1,0 +1,80 @@
+# install longhorn
+Provision Longhorn https://longhorn.io/docs/1.8.1/deploy/install/ (use Longhorn for production)
+
+# patch longhorn for microk8s self-hosted usage
+microk8s kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.8.1/deploy/longhorn.yaml
+microk8s kubectl patch storageclass longhorn   -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+microk8s kubectl get pods -n longhorn-system | grep csi
+
+# install dependency
+minikube ssh
+sudo apt update
+sudo apt install -y open-iscsi
+sudo systemctl enable --now iscsid
+
+# create PVC deployment | pay attention to namespace, db-eu may be replaced to default or your namespace
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-eu-pvc-longhorn
+  namespace: db-eu
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: longhorn
+
+# create posgreSQL secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-eu-secret
+  namespace: db-eu
+type: Opaque
+data:
+  POSTGRES_PASSWORD: YOUR_BASE64_ENCODED_POSTGRES_PASS
+
+# create posgreSQL deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-eu
+  namespace: db-eu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-eu
+  template:
+    metadata:
+      labels:
+        app: db-eu
+    spec:
+      containers:
+        - name: db-eu
+          image: i30845.eu-registry-1.kenzap.cloud/v2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-eu-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: db-eu-storage-longhorn
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: db-eu-storage-longhorn
+          persistentVolumeClaim:
+            claimName: db-eu-pvc-longhorn
+
+# alternative method
+Setup PostgreSQL Secret and Persistent Volume Claim (PVC) with Longhorn class (use Longhorn for production)
+Create PostgreSQL deployment using Kenzap App
+Create Adminer deployment to access database using Kenzap App
