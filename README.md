@@ -28,4 +28,4 @@ Native app to simplify Kubernetes cluster setup, CI/CD pipelines, and microservi
 
 ## Links
 
-[kenzap.com](https://kenzap.com) · [support@kenzap.com](mailto:support@kenzap.com) · [LinkedIn](https://www.linkedin.com/company/kenzap) · [YouTube](https://www.youtube.com/c/KenzapCloud)
+[kenzap.com](https://kenzap.com) · [LinkedIn](https://www.linkedin.com/company/kenzap) · [YouTube](https://www.youtube.com/c/KenzapCloud)
