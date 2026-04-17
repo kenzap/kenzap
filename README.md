@@ -1,116 +1,31 @@
-# 🚀 Kubernetes Simplified Desktop App  
+# Kenzap
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/kenzap/kenzap)  
-[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)  
-[![Slack](https://img.shields.io/badge/slack-join%20community-orange)](https://kenzap.slack.com/channels/community)
-
-A user-friendly **desktop application** built with **Electron.js** to simplify Kubernetes cluster setup, CI/CD pipelines, and infrastructure management. Get started with cloud-native development, hassle-free.  
+Open source tooling for factory operations. We build software for the manufacturing layer — nesting, production tracking, job costing, and shop-floor execution.
 
 ---
 
-## 🌟 **Product Overview**  
+## Repositories
 
-### 🎥 **Preview**  
-![Kubernetes Simplified App in Action](https://github.com/kenzap/kenzap/blob/main/preview.gif)  
-*(Above: The app streamlining cluster creation and deployment automation.)*  
+### [kenzap/nesting-app](https://github.com/kenzap/nesting-app)
+DXF-based 2D nesting for sheet and strip layouts. Native desktop app (Windows / macOS Apple Silicon) with a built-in nesting engine, live preview, multi-layer DXF export, engraving support, and polygon JSON output for offline or cloud algorithm workflows.
 
----
+### [kenzap/factory](https://github.com/kenzap/factory)
+Production management platform for job-based manufacturing. Covers the quote-to-dispatch workflow: estimation, MRP, shop-floor execution, job costing, Peppol e-invoicing, and accounting integrations.
 
-### ✨ **Features**  
-- **All-in-One Tool**: Build, manage, and automate Kubernetes clusters effortlessly.  
-- **User-Friendly Interface**: No steep learning curve or DevOps expertise needed.  
-- **Local Deployment**: Full offline functionality for privacy and speed.  
-- **Free-Tier Docker Registries**: Save costs while managing containers seamlessly.  
-- **Built-In CI/CD Pipelines**: Automate workflows with zero configuration.  
-- **Analytics Dashboard**: Get insights into deployments and clusters in real time.  
-- **Cloud Flexibility**: Choose any provider and control your costs.  
+### [kenzap/kenzap](https://github.com/kenzap/kenzap)
+Native app to simplify Kubernetes cluster setup, CI/CD pipelines, and microservice infrastructure management.
 
 ---
 
-## 🛠 **Installation**  
+## Stack
 
-### **Prerequisites**  
-- **Node.js** (version 20.x or higher recommended)  
-- **Docker** (required)
-- **Devspace** (required)
-- **Kubectl** (required)
-
-### **Download & Install**  
-1. Download the latest release for [macOS](https://kenzap.cloud/static/releases/Kenzap-latest-arm64.dmg), [Windows](#), or [Linux](#).  
-2. Run the installer and follow the prompts.  
-3. Launch the app and start configuring your Kubernetes cluster!  
-
-### **From Source**  
-```bash
-git clone https://github.com/kenzap/kenzap.git  
-cd kenzap
-nvm use 20
-npm i  
-npm run dev  
-```  
+- Nesting engine — Rust
+- Desktop app — Electron + web stack
+- Factory platform — Node.js, Redis, JavaScript
+- DXF parsing — supports lines, arcs, circles, polylines, ellipses, splines
 
 ---
 
-## 🎯 **Getting Started**  
+## Links
 
-1. **Launch the App**: Open the app on your machine.  
-2. **Cluster Setup**: Follow the step-by-step wizard to build your Kubernetes cluster.  
-3. **CI/CD Pipeline**: Configure automated pipelines effortlessly using the built-in tools.  
-4. **Deploy & Monitor**: Deploy your application and track metrics in the dashboard.  
-
-For detailed guidance, check our [Documentation](#).  
-
----
-
-## 🤝 **Join the Community**  
-
-Stay updated, share feedback, and connect with other developers:  
-- 💬 [Join Slack Community](https://kenzap.slack.com/channels/community)  
-- 🐦 [Follow us on Twitter](https://twitter.com/kenzap)
-- 🔺 [Comment on Reddit](https://www.reddit.com/r/kubernetes/comments/1jckjsm/building_a_ui_for_kubernetes_helpful_or_useless/)
-- 👨🏼‍💻 [Connect on LinkedIn](https://linkedin.com/in/pavel-lukasenko)
-
----
-
-## 🔧 **Contributing**  
-
-We welcome contributions! Please follow these steps:  
-1. Fork the repository.  
-2. Create a new feature branch.  
-3. Submit a pull request with detailed changes.  
-
----
-
-## 📜 **License**  
-
-This project is licensed under the [GPLv3 License](LICENSE).  
-
----
-
-## 🚀 **Roadmap**  
-
-- [ ] Test support for multi-cloud environments.  
-- [ ] Docker app templates.  
-- [ ] Expand analytics dashboard capabilities.
-- [ ] Traffic monitoring and cluster security
-
----
-
-## ⭐ **Support Us**  
-
-If you find this project helpful, please consider giving us a ⭐ on [GitHub](https://github.com/kenzap/kenzap).  
-
-<!--
-**kenzap/kenzap** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-
-Here are some ideas to get you started:
-
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+[kenzap.com](https://kenzap.com) · [support@kenzap.com](mailto:support@kenzap.com) · [LinkedIn](https://www.linkedin.com/company/kenzap) · [YouTube](https://www.youtube.com/c/KenzapCloud)
