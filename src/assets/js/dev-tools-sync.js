@@ -1,159 +1,130 @@
+import global from './global.js'
+import { __html, attr, html, onClick, getSetting, toast } from './helpers.js'
+import { validPath, toggleDepIconState } from './dev-tools.js'
+import { ipcRenderer } from 'electron'
+import fs from 'fs'
 
-import global from "./global.js"
-import { __html, attr, onClick, getSetting, log } from './helpers.js'
-import { getAppKubeconfig } from './app-status-helpers.js'
-import { validPath, getDevspacePath, run_script } from './dev-tools.js'
-import terminate from "terminate"
-import fs from "fs"
+let listening = false;
+
+function renderSyncConsole(id) {
+    const owner = global.state.consoleOwner;
+    const selected = global.state.page === 'app-settings' && global.state.app ? global.state.app.id : owner && owner.appId;
+    const state = global.state.dev && global.state.dev[id];
+    if (selected !== id || !state || typeof state.syncLog !== 'string') return;
+    if (owner && owner.appId === id && owner.type !== 'sync') return;
+    if ((!owner || owner.appId !== id) && !state.syncDesired && !state.syncError) return;
+    global.state.console = html(state.syncLog);
+    const output = document.querySelector('.console-output');
+    if (output) { output.textContent = state.syncLog; output.scrollTop = output.scrollHeight; }
+}
+
+export function updateSyncState(update, notify = true) {
+    if (!update || !update.appId) return;
+    if (!global.state.dev) global.state.dev = {};
+    const previous = global.state.dev[update.appId] || {};
+    if ((previous.syncRevision || 0) >= update.revision) return;
+    // Pod health belongs to the monitor; sync must not replace its running/edge fields.
+    global.state.dev[update.appId] = { ...previous,
+        syncStatus: update.status, syncDesired: update.desired, syncRunning: update.running,
+        syncPreparing: !notify && !!previous.syncPreparing, syncRevision: update.revision,
+        syncJobId: update.jobId, syncLog: update.log, syncError: update.error,
+        syncTransport: update.transport, syncFile: update.file, status: update.desired ? 'sync' : 'stop'
+    };
+    toggleDepIconState(update.appId);
+    renderSyncConsole(update.appId);
+    if (notify && ['failed', 'paused'].includes(update.status) && previous.syncStatus !== update.status) {
+        toast(html(update.error || __html('Live sync paused')));
+    }
+}
 
 export class DevToolsSync {
-
-    constructor(global) {
-
-        this.global = global;
-    }
-
     init() {
-
+        if (!listening) {
+            listening = true;
+            ipcRenderer.on('app-sync-update', (event, update) => updateSyncState(update));
+        }
+        ipcRenderer.invoke('app-sync-list').then(result => {
+            if (result && result.ok) result.value.forEach(update => {
+                updateSyncState(update, false);
+                renderSyncConsole(update.appId);
+            });
+        }).catch(() => {});
         this.listeners();
     }
 
     listeners() {
-
-        // start dev
-        onClick('.start-dev-app', e => {
-
-            e.preventDefault();
-
-            this.sync(e.currentTarget.dataset.id, 'start');
-        });
-
-        // stop dev
-        onClick('.stop-dev-app', e => {
-
-            e.preventDefault();
-
-            this.sync(e.currentTarget.dataset.id, 'stop');
-
-            return false
-        });
+        onClick('.start-dev-app', e => { e.preventDefault(); this.sync(e.currentTarget.dataset.id, 'start'); });
+        onClick('.stop-dev-app', e => { e.preventDefault(); this.syncStop(e.currentTarget.dataset.id); });
     }
 
-    sync(id, cmd) {
-
-        log(`Syncing ${id}...`);
-
-        if (!global.state.dev) global.state.dev = {};
-        if (!global.state.dev[id]) global.state.dev[id] = { running: true };
-
-        let cache = getSetting(id);
-
-        let app = global.state.apps.filter(app => app.id == id)[0];
-
+    sync(id, command) {
+        if (command === 'stop') return this.syncStop(id);
+        const state = global.state.dev && global.state.dev[id] || {};
+        if (state.syncRunning || state.syncPreparing) return;
+        const publishing = global.state.pub && global.state.pub[id];
+        if (publishing && (publishing.running || publishing.preparing)) {
+            toast(__html('Wait for publishing to finish before starting live sync.')); return;
+        }
+        const cache = getSetting(id);
         if (!validPath(cache)) return;
-
-        if (cmd == 'stop') { this.syncStop(app); return; }
-
-        document.querySelector('.devToolsSyncCont[data-id=' + id + '] ul').innerHTML = "";
-
-        const devspaceFiles = fs.readdirSync(cache.path).filter(file => file.startsWith('devspace') && file.endsWith('.yaml'));
-
-        log(`Found devspace files: ${devspaceFiles}`);
-
-        devspaceFiles.forEach(file => {
-
-            document.querySelector('.devToolsSyncCont[data-id=' + id + '] ul').innerHTML += `<li><a class="dropdown-item po dev-tools-sync-start" data-file="${file}" href="#">` + file.replace('devspace-', '').replace('.yaml', '') + `</a></li>`;
-        });
-
-        if (devspaceFiles.length == 0) return;
-
-        if (devspaceFiles.length == 1) {
-
-            this.syncStart(app, devspaceFiles[0]);
-
-            // Close the dropdown menu
-            const dropdownMenu = document.querySelector('.devToolsSyncCont .dropdown-menu.show');
-            if (dropdownMenu) {
-                dropdownMenu.classList.remove('show');
-            }
-        }
-
-        if (devspaceFiles.length > 1) {
-
-            onClick('.dev-tools-sync-start', e => {
-
-                e.preventDefault();
-
-                let file = e.currentTarget.dataset.file;
-
-                this.syncStart(app, file);
-
-                // Close the dropdown menu
-                const dropdownMenu = document.querySelector('.devToolsSyncCont .dropdown-menu.show');
-                if (dropdownMenu) {
-                    dropdownMenu.classList.remove('show');
-                }
+        try {
+            const files = fs.readdirSync(cache.path).filter(file => file.startsWith('devspace') && file.endsWith('.yaml')).sort();
+            const selector = '.devToolsSyncCont[data-id="' + id + '"]';
+            const menu = document.querySelector(selector + ' ul');
+            if (!menu) return;
+            if (!files.length) { toast(__html('No DevSpace configurations found in this workspace.')); return; }
+            menu.innerHTML = files.map(file => '<li><a class="dropdown-item po dev-tools-sync-start" data-file="' + attr(file) + '" href="#">' + html(file.replace('devspace-', '').replace('.yaml', '')) + '</a></li>').join('');
+            const closeMenu = () => {
+                const dropdown = document.querySelector(selector + ' .dropdown-menu.show');
+                if (dropdown) dropdown.classList.remove('show');
+            };
+            if (files.length === 1) { this.syncStart(id, files[0]); closeMenu(); }
+            else onClick(selector + ' .dev-tools-sync-start', e => {
+                e.preventDefault(); this.syncStart(id, e.currentTarget.dataset.file); closeMenu();
             });
+        } catch (error) { toast(html(error.message)); }
+    }
+
+    async syncStart(id, file) {
+        if (!global.state.dev) global.state.dev = {};
+        const state = global.state.dev[id] || (global.state.dev[id] = {});
+        if (state.syncRunning || state.syncPreparing) return;
+        const publishing = global.state.pub && global.state.pub[id];
+        if (publishing && (publishing.running || publishing.preparing)) {
+            toast(__html('Wait for publishing to finish before starting live sync.')); return;
+        }
+        state.syncPreparing = true;
+        state.syncError = '';
+        global.state.consoleOwner = { type: 'sync', appId: id };
+        global.state.console = '';
+        const output = document.querySelector('.console-output');
+        if (output) output.textContent = '';
+        toggleDepIconState(id);
+        try {
+            const result = await ipcRenderer.invoke('app-sync-start', { appId: id, file });
+            if (!result || !result.ok) throw new Error(result && result.error || __html('Unable to start live sync.'));
+            updateSyncState(result.value);
+        } catch (error) {
+            const current = global.state.dev[id];
+            current.syncPreparing = false;
+            current.syncError = error.message;
+            // A rejected restart must not hide an existing paused session's Stop control.
+            if (!current.syncDesired) { current.syncStatus = 'failed'; current.syncRunning = false; current.status = 'stop'; }
+            toggleDepIconState(id);
+            toast(html(error.message));
+        } finally {
+            global.state.dev[id].syncPreparing = false;
+            toggleDepIconState(id);
         }
     }
 
-    syncStart(app, file) {
-
-        let id = app.id;
-
-        let kubeconfig = getAppKubeconfig(app.id);
-
-        if (!kubeconfig && app.clusters[0] != 'local') return;
-
-        if (app.clusters[0] == 'local') kubeconfig = "";
-
-        let devspace = getDevspacePath();
-
-        let cache = getSetting(id);
-
-        document.querySelector('[data-id="' + id + '"].stop-dev-app').classList.remove('d-none');
-        document.querySelector('[data-id="' + id + '"].start-dev-app').classList.add('d-none');
-        if (document.querySelector('[data-id="' + id + '"].dev-badge')) document.querySelector('[data-id="' + id + '"].dev-badge').parentElement.innerHTML = `<div class="badge dev-badge bg-danger fw-light po" data-id="${app.id}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ${__html('Syncing')}</div></div>`;
-        document.querySelector('.console-output').innerHTML = "";
-
-        let cb = () => {
-
-            log(`cd ${cache.path} && ${devspace} sync -n ${id} --config=${file} ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn`)
-        }
-
-        if (global.state.dev[id].proc) {
-            terminate(global.state.dev[id].proc.pid, err => {
-                if (err) {
-                    log('Failed to terminate existing process:', err);
-                } else {
-                    log('Terminated existing devspace sync process');
-                }
-                startDevspaceSync();
-            });
-        } else {
-            startDevspaceSync();
-        }
-
-        function startDevspaceSync() {
-
-            global.state.dev[id].status = "sync";
-            global.state.dev[id].proc = run_script(
-                `cd ${cache.path} && rm -Rf .devspace && ${devspace} sync -n ${id} --config=${file} ${kubeconfig ? `--kubeconfig=${kubeconfig}` : ''} --no-warn`,
-                [],
-                cb
-            );
-        }
-    }
-
-    syncStop(app) {
-
-        let id = app.id;
-
-        document.querySelector('[data-id="' + id + '"].stop-dev-app').classList.add('d-none');
-        document.querySelector('[data-id="' + id + '"].start-dev-app').classList.remove('d-none');
-        document.querySelector('[data-id="' + id + '"].dev-badge').parentElement.innerHTML = `<div class="badge dev-badge bg-primary fw-light po" data-id="${app.id}"><div class="d-flex align-items-center">${__html('Published')}</div></div>`
-        terminate(global.state.dev[id].proc.pid, err => log(err))
-        global.state.dev[id].status = "stop";
+    async syncStop(id) {
+        const state = global.state.dev && global.state.dev[id];
+        if (!state || !state.syncJobId || (!state.syncDesired && !state.syncRunning)) return;
+        try {
+            const result = await ipcRenderer.invoke('app-sync-stop', { appId: id, jobId: state.syncJobId });
+            if (!result || !result.ok) throw new Error(result && result.error || __html('Unable to stop live sync.'));
+            updateSyncState(result.value);
+        } catch (error) { toast(html(error.message)); }
     }
 }
-

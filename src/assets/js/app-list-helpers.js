@@ -4,7 +4,17 @@ import { __html, attr, getDefaultAppPath, getSetting, log } from './helpers.js'
 import fs from 'fs';
 import path from 'path';
 import simpleIcons from '../libs/simple-icons.json';
-import loading from '../../assets/img/loading.png';
+
+const iconRequests = new Map();
+const bundledIcons = require.context('../img/apps', false, /\.(svg|png|jpe?g|webp|gif)$/i);
+const bundledIconNames = new Set(bundledIcons.keys());
+
+function getBundledIcon(url) {
+    const match = url.match(/^https:\/\/kenzap\.cloud\/static\/apps\/([^/?#]+)(?:[?#].*)?$/);
+    if (!match || !bundledIconNames.has('./' + match[1])) return '';
+    const icon = bundledIcons('./' + match[1]);
+    return icon.default || icon;
+}
 
 /**
  * Retrieves a list of application directories that contain an '.kenzap' file.
@@ -46,20 +56,15 @@ export function getAppIcon(app) {
     // log("getAppIcon", app);
     // return;
 
-    let conversions = { "httpd": "apache", "node": "nodejs" };
     let url = "";
 
     // log("getAppIcon", app);
 
     if (app.icon) url = app.icon;
 
-    // if (!url && app.app && app.app.slug) url = `https://kenzap.cloud/static/apps/${conversions[app.app.slug] || app.app.slug}.svg?lastmod=3`;
-
-    // if (!url && app.image) url = `https://kenzap.cloud/static/apps/${app.image}.svg?lastmod=3`;
-
     if (!url && app.dockerfiles && app.dockerfiles.length > 0) {
 
-        const dockerfileContent = app.dockerfiles[0].content;
+        const dockerfileContent = app.dockerfiles[0].content || '';
         const imageMatch = dockerfileContent.match(/^FROM\s+([^\s]+)/m);
         if (imageMatch && imageMatch[1]) {
 
@@ -71,35 +76,49 @@ export function getAppIcon(app) {
 
     // log("url", url);
 
-    if (!url) url = loading;
-
-    fetch(url, {
-        //  method: 'HEAD',
-    })
-        .then(response => {
-            if (response.ok) {
-
-                document.querySelector(".timgc[data-id='" + app.id + "']").innerHTML = `
-                <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
-                    <div class="app-icon" data-id="${attr(app.title)}" >
-                        <img src="${url}" alt="${app.title}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">
-                    </div>
+    const initials = (app.title || app.id || 'App').trim().split(/\s+/).map(word => word[0]).slice(0, 2).join('').toUpperCase();
+    // Webpack includes local icons in packaged builds, not just the source workspace.
+    const localIcon = getBundledIcon(url);
+    if (localIcon) {
+        return `
+            <div class="app-icon-container icon-sm text-center d-inline-block m-0">
+                <div class="app-icon">
+                    <img src="${attr(localIcon)}" alt="${attr(app.title || app.id || 'App')}" class="img-fluid rounded">
                 </div>
-                `;
-
-                // document.querySelector(".timgc[data-id='" + app.id + "']").innerHTML = `<img src="${url}" alt="${app.app.name}" class="img-fluid rounded" style="width: 64px; height: 64px; border-radius: 15px;">`;
-            } else {
-                console.warn(`Icon not found at ${url}`);
-            }
-        })
-        .catch(error => {
-            console.error(`Error fetching icon from ${url}:`, error);
+            </div>
+        `;
+    }
+    if (url) {
+        if (!iconRequests.has(url)) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
+            // Optional branding must not flood requests or errors while offline.
+            iconRequests.set(url, fetch(url, { signal: controller.signal })
+                .then(response => response.ok ? response.blob() : null)
+                .then(blob => blob ? URL.createObjectURL(blob) : null)
+                .catch(() => null)
+                .finally(() => clearTimeout(timer)));
+        }
+        iconRequests.get(url).then(source => {
+            if (!source) return;
+            const image = new Image();
+            image.src = source;
+            image.alt = app.title || app.id || 'App';
+            image.className = 'img-fluid rounded';
+            image.decode().then(() => {
+                document.querySelectorAll('.timgc').forEach(container => {
+                    if (container.dataset.id !== app.id) return;
+                    const frame = container.querySelector('.app-icon');
+                    if (!frame || frame.dataset.iconUrl !== url) return;
+                    frame.replaceChildren(image.cloneNode());
+                });
+            }).catch(() => {});
         });
-
+    }
     return `
         <div class="app-icon-container icon-sm text-center d-inline-block m-0" >
-            <div class="app-icon" >
-                <img src="${loading}" alt="loader" class="img-fluid rounded d-none" style="width: 64px; height: 64px; border-radius: 15px;">
+            <div class="app-icon" data-icon-url="${attr(url)}">
+                <span class="app-icon-fallback rounded" aria-label="${attr(app.title || app.id || 'App')}">${attr(initials)}</span>
             </div>
         </div>
         `;
@@ -115,15 +134,10 @@ export function getAppIcon(app) {
  */
 export function getFirstEndpoint(app) {
 
-    let ea = app.endpoints ? Object.keys(app.endpoints) : [];
-
-    if (ea.length == 0) return "";
-
-    // console.log("getFirstEndpoint", app.endpoints[ea[0]]);
-
-    if (app.endpoints[ea[0]].active_public) return app.endpoints[ea[0]].host;
-
-    if (app.endpoints[ea[0]].active_private) return app.endpoints[ea[0]].private + ":" + app.endpoints[ea[0]].port;
+    const endpoint = Object.values(app.endpoints || {}).find(item => item.active_private);
+    if (!endpoint) return '';
+    if (endpoint.active_public) return endpoint.host;
+    return endpoint.private + ':' + endpoint.port;
 }
 
 /**

@@ -5,16 +5,185 @@ import { format as formatUrl } from 'url'
 import global from '../assets/js/global.js'
 import { mainMenu } from '../assets/js/menu.js'
 import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron'
-import { getTemplatesPath } from '../assets/js/dev-tools.js'
+import { getTemplatesPath } from '../assets/js/templates-path.js'
 import { execSync } from 'child_process';
 import os from 'os';
 import fs from 'fs';
+import { ClusterConnections } from './cluster-connections.js';
+import { ClusterMonitor } from './cluster-monitor.js';
+import { EndpointDeployer } from './endpoint-deployer.js';
+import { PodConsole } from './pod-console.js';
+import { AppPublisher } from './app-publisher.js';
+import { AppSync } from './app-sync.js';
 
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
 // global reference to mainWindow (necessary to prevent window from being garbage collected)
 let mainWindow
+let clusterConnections
+let clusterMonitor
+let endpointDeployer
+let podConsole
+let appPublisher
+let appSync
+
+function registerClusterConnectionHandlers() {
+  clusterConnections = new ClusterConnections({
+    baseDir: path.join(os.homedir(), 'Kenzap'),
+    runtimeDir: path.join(app.getPath('userData'), 'cluster-connections'),
+    confirmHost: async ({ endpoint, fingerprint }) => {
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: 'question', title: 'Verify SSH server',
+        message: `Trust the SSH server at ${endpoint}?`,
+        detail: `Fingerprint: ${fingerprint}\n\nCompare this fingerprint with one obtained from your server administrator or server console. Future connections will require this same key.`,
+        buttons: ['Cancel', 'Trust server'], defaultId: 0, cancelId: 0, noLink: true
+      });
+      return result.response === 1;
+    },
+    onStatus: status => {
+      if (clusterMonitor) clusterMonitor.invalidate(status.id);
+      if (endpointDeployer) endpointDeployer.invalidate(status.id);
+      if (podConsole) podConsole.invalidate(status.id);
+      if (appPublisher) appPublisher.invalidate(status.id);
+      if (appSync) appSync.connectionChanged(status);
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cluster-connection-status', status);
+    }
+  });
+  clusterMonitor = new ClusterMonitor({ connections: clusterConnections });
+  endpointDeployer = new EndpointDeployer({ monitor: clusterMonitor });
+  podConsole = new PodConsole({ monitor: clusterMonitor });
+  appPublisher = new AppPublisher({ monitor: clusterMonitor, onUpdate: update => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app-publish-update', update);
+  } });
+  appSync = new AppSync({ monitor: clusterMonitor,
+    canStart: appId => !appPublisher.list().some(job => job.appId === appId && job.running),
+    onUpdate: update => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app-sync-update', update);
+    }
+  });
+
+  const handle = (channel, callback) => {
+    ipcMain.removeHandler(channel);
+    ipcMain.handle(channel, async (event, id) => {
+      if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Unknown connection request.');
+      try { return { ok: true, value: await callback(id) }; }
+      catch (error) { return { ok: false, error: error.message, code: error.code || '' }; }
+    });
+  };
+  handle('cluster-connection-list', () => clusterConnections.list(true));
+  handle('cluster-monitor-read', request => clusterMonitor.read(request));
+  handle('app-endpoints-deploy', request => endpointDeployer.deploy(request && request.appId));
+  handle('app-pod-console-open', request => podConsole.open(request));
+  handle('app-publish-start', request => {
+    if (request && appSync.isBusy(request.appId)) throw new Error('Stop live sync before publishing this app.');
+    return appPublisher.start(request);
+  });
+  handle('app-publish-cancel', request => appPublisher.cancel(request));
+  handle('app-publish-list', () => appPublisher.list());
+  handle('app-sync-start', request => appSync.start(request));
+  handle('app-sync-stop', request => appSync.stop(request));
+  handle('app-sync-list', () => appSync.list());
+  handle('cluster-connection-connect', id => clusterConnections.connect(id));
+  handle('cluster-connection-disconnect', id => clusterConnections.disconnect(id));
+  handle('cluster-connection-export', async id => {
+    const connection = clusterConnections.list().find(item => item.id === id && item.state === 'connected');
+    if (!connection) throw new Error('Connect this cluster via SSH before exporting its kubeconfig.');
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export SSH kubeconfig', defaultPath: `kubeconfig-${id}-ssh.yaml`,
+      filters: [{ name: 'YAML', extensions: ['yaml'] }]
+    });
+    if (result.canceled) return null;
+    fs.writeFileSync(result.filePath, fs.readFileSync(connection.kubeconfigPath), { mode: 0o600 });
+    fs.chmodSync(result.filePath, 0o600);
+    return result.filePath;
+  });
+}
+
+function getDialogOwnerWindow(event) {
+  const ownerWindow = event?.sender ? BrowserWindow.fromWebContents(event.sender) : null;
+  return ownerWindow || mainWindow || null;
+}
+
+function normalizeDialogOptions(options) {
+  if (!options || Array.isArray(options)) return {};
+  return options;
+}
+
+function getDialogFilters(options = {}) {
+  if (Array.isArray(options.filters)) return options.filters;
+
+  const extensions = Array.isArray(options.extensions) ? options.extensions : [options.extensions];
+  const normalizedExtensions = extensions
+    .filter(Boolean)
+    .map(extension => extension.replace(/^\./, ''));
+
+  if (!normalizedExtensions.length) return [];
+
+  return [{ name: options.name || 'Files', extensions: normalizedExtensions }];
+}
+
+function getDialogDefaultPath(options = {}) {
+  if (options.defaultPath) return options.defaultPath;
+
+  const baseName = options.fileName || options.name;
+  if (!baseName) return undefined;
+
+  const extension = Array.isArray(options.extensions) ? options.extensions[0] : options.extensions;
+  const normalizedExtension = extension ? `.${String(extension).replace(/^\./, '')}` : '';
+
+  return `${baseName}${normalizedExtension}`;
+}
+
+function registerDialogHandlers() {
+  ipcMain.removeHandler("pick-folder");
+  ipcMain.handle("pick-folder", async (event, rawOptions) => {
+
+    const options = normalizeDialogOptions(rawOptions);
+    const {
+      title = "Choose folder",
+      buttonLabel = "Choose",
+      nameFieldLabel = "",
+      defaultPath = "*/app.kenzap"
+    } = options;
+
+    return dialog.showSaveDialog(
+      getDialogOwnerWindow(event),
+      {
+        title,
+        properties: ['openDirectory'],
+        buttonLabel,
+        nameFieldLabel,
+        icon: 'main.ico',
+        defaultPath
+      }
+    );
+  });
+
+  ipcMain.removeHandler("pick-file");
+  ipcMain.handle("pick-file", async (event, rawOptions) => {
+    const options = normalizeDialogOptions(rawOptions);
+    const {
+      title = "Choose file",
+      properties = ['openFile'],
+      buttonLabel = "Choose"
+    } = options;
+
+    const dialogOptions = {
+      title,
+      properties: Array.isArray(properties) && properties.length ? properties : ['openFile'],
+      buttonLabel
+    };
+
+    const filters = getDialogFilters(options);
+    if (filters.length) dialogOptions.filters = filters;
+
+    const defaultPath = getDialogDefaultPath(options);
+    if (defaultPath) dialogOptions.defaultPath = defaultPath;
+
+    return dialog.showOpenDialog(getDialogOwnerWindow(event), dialogOptions);
+  });
+}
 
 function createMainWindow() {
   const window = new BrowserWindow({
@@ -37,6 +206,10 @@ function createMainWindow() {
   // if (process.env.KENZAP_DEBUG == "1") {
   window.webContents.openDevTools()
   // }
+
+  window.webContents.once('did-finish-load', () => {
+    clusterConnections.restore().catch(error => console.error('Cannot restore SSH connections:', error.message));
+  });
 
   if (isDevelopment) {
     window.loadURL(`http://localhost:${process.env.ELECTRON_WEBPACK_WDS_PORT}`)
@@ -122,6 +295,8 @@ function setupProductionPaths() {
   // verifyCommands();
 }
 
+registerDialogHandlers();
+
 function verifyCommands() {
   const requiredCommands = {
     docker: ['docker --version', 'Docker'],
@@ -170,6 +345,15 @@ app.on('window-all-closed', () => {
   }
 })
 
+app.on('before-quit', () => {
+  if (appSync) appSync.close();
+  if (appPublisher) appPublisher.close();
+  if (podConsole) podConsole.close();
+  if (endpointDeployer) endpointDeployer.close();
+  if (clusterMonitor) clusterMonitor.close();
+  if (clusterConnections) clusterConnections.close();
+})
+
 app.on('activate', () => {
   // on macOS it is common to re-create a window even after all windows have been closed
   if (mainWindow === null) {
@@ -192,58 +376,13 @@ app.on('ready', () => {
 
   if (process.env.NODE_ENV === 'production') setupProductionPaths();
 
+  registerClusterConnectionHandlers();
+
   mainWindow = createMainWindow();
 
   global.state.dialog = dialog;
 
   Menu.setApplicationMenu(mainMenu);
-
-  // electron folder picker dialog
-  ipcMain.handle("pick-folder", async (event, options) => {
-
-    const {
-      name, //the name showed for the extension/s
-      extensions,
-      fileName
-    } = options;
-    // let filters = [{ name: name, extensions: Array.isArray(extensions) ? extensions : [extensions] }];
-    var returnValue = await dialog.showSaveDialog(
-      null,
-      {
-        title: "Choose folder",
-        properties: ['openDirectory'],
-        buttonLabel: "Choose",
-        nameFieldLabel: "",
-        // name: [name],
-        // filters: filters,
-        icon: 'main.ico',
-        defaultPath: "*/app.kenzap"
-        // defaultPath: (fileName || name) + '.' + extensions
-      }
-    );
-    return returnValue;
-  });
-
-  // electron file picker dialog
-  ipcMain.handle("pick-file", async (event, options) => {
-    const {
-      name, // the name showed for the extension/s
-      extensions,
-      fileName
-    } = options;
-    let filters = [{ name: name, extensions: Array.isArray(extensions) ? extensions : [extensions] }];
-    var returnValue = await dialog.showOpenDialog(
-      null,
-      {
-        title: "Choose file",
-        properties: ['openFile'],
-        buttonLabel: "Choose",
-        filters: filters,
-        defaultPath: (fileName || name) + '.' + (extensions ? extensions[0] : '')
-      }
-    );
-    return returnValue;
-  });
 
   // Function to load plugins dynamically
   async function loadPlugin(pluginName) {

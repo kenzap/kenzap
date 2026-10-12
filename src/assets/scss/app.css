@@ -96,10 +96,63 @@ div.toast-cont{
   max-width: 100%;
 }
 
+.app-icon-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  background: #fff;
+  border: 1px solid #e3e6eb;
+  color: #000e35;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 .table-responsive .dropdown,
 .table-responsive .btn-group,
 .table-responsive .btn-group-vertical {
   position: static;
+}
+
+.cluster-actions-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.cluster-actions-toggle::after {
+  display: none;
+}
+
+.cluster-actions-toggle:hover,
+.cluster-actions-toggle[aria-expanded="true"] {
+  background: #e9ecef;
+}
+
+.cluster-actions-toggle:focus-visible {
+  outline: 2px solid #1941df;
+  outline-offset: 2px;
+}
+
+.cluster-actions-menu {
+  /* Above the fixed header (1030), below modal backdrops (1040). */
+  z-index: 1035;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - var(--cluster-menu-header-height, 64px) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cluster-actions-menu .dropdown-item {
+  white-space: normal;
 }
 
 .blocked::after {
@@ -221,4 +274,13 @@ h2, h3, h4, h5,
 
 .app-warnings:empty{
   display: none;
+}
+
+.monitoring-stale .cpu-stats,
+.monitoring-stale .ram-stats {
+  opacity: .4;
+}
+
+.edge-status.unknown {
+  background: #adb5bd;
 }

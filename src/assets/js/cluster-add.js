@@ -197,13 +197,21 @@ export class ClusterAdd {
 
             e.preventDefault();
 
-            ipcRenderer.invoke("pick-file", []).then(returnValue => {
+            ipcRenderer.invoke("pick-file", {
+                title: "Choose SSH key",
+                buttonLabel: "Choose",
+                properties: ['openFile']
+            }).then(returnValue => {
 
                 if (!returnValue.filePaths.length) return;
 
                 let keyPathInput = document.querySelector(".key-path");
                 keyPathInput.value = returnValue.filePaths[0];
                 keyPathInput.scrollLeft = keyPathInput.scrollWidth;
+            }).catch(error => {
+
+                console.error('Failed to open SSH key picker', error);
+                toast(__html('Unable to open SSH key picker. Please restart the app and try again.'));
             });
         });
 

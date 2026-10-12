@@ -1,6 +1,5 @@
 import { __html, loadDependencies } from './helpers.js'
-import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_script, getKubectlPath } from './dev-tools.js'
+import { pollClusterState, monitoringLabel } from './cluster-monitor-client.js'
 
 /**
  * Class representing the statistics of a cluster node.
@@ -37,6 +36,7 @@ export class ClusterNodeStats {
                     </span>
                 </div>
                 <p class="form-text">${__html('Total  nodes\' resource consumption.')}</p>
+                <p class="form-text monitoring-state" role="status"></p>
                 <div class="d-flex align-items-center justify-content-start mb-2">
                     <div class="container">
                         <div class="row">
@@ -73,37 +73,14 @@ export class ClusterNodeStats {
 
         let self = this;
 
-        let kubeconfig = getClusterKubeconfig(this.cluster.id);
-
-        if (!kubeconfig) return;
-
-        if (self.statsInterval) clearInterval(self.statsInterval);
-
-        let cb = (data) => { }
-
-        let kubectl = getKubectlPath();
-
-        self.statsInterval = setInterval(() => {
-
-            this.data = "";
-
-            if (!document.querySelector(".cpu-stats")) { clearInterval(self.statsInterval); return; }
-
-            let proc = run_script(kubectl + ' top nodes --kubeconfig=' + kubeconfig, [], () => { }, false);
-
-            proc.stdout.on('data', (data) => {
-
-                this.data += data.toString();
-
-                // console.log(`Cluster Node Stats: ${this.data}`);
-            });
-
-            proc.stdout.on('error', (data) => {
-
-                // console.error(`Cluster Node Stats Error: ${data}`);
-            });
-
-            proc.on('close', (code) => {
+        this.element = document.querySelector('cluster-node-stats');
+        if (!this.element) return;
+        if (this.monitor) this.monitor.stop();
+        const notice = this.element.querySelector('.monitoring-state');
+        this.monitor = pollClusterState(this.element, this.cluster.id, 'topNodes', result => {
+                this.data = result.data;
+                notice.textContent = monitoringLabel(result);
+                this.element.classList.remove('monitoring-stale');
 
                 // Extract rows from the output
                 const rows = this.data.trim().split('\n').slice(1); // Skip the header row
@@ -148,9 +125,10 @@ export class ClusterNodeStats {
                 // console.log(`Total Memory: ${totalMemory}Mi`);
 
                 self.drawCharts(self);
-            });
-
-        }, 1000);
+        }, error => {
+            notice.textContent = error.message;
+            this.element.classList.add('monitoring-stale');
+        }, {}, 5000);
     }
 
     /**
@@ -210,6 +188,8 @@ export class ClusterNodeStats {
         if (self.chart.cpu.length == 0) return;
 
         google.charts.setOnLoadCallback(() => {
+
+            if (!self.element || !self.element.isConnected) return;
 
             let cpuUsage = Math.round(100 * ((self.chart.cpu).reduce((acc, curr) => acc + curr[1], 0) / self.chart.cpu.length) / self.range.cpu);
 

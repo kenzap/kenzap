@@ -94,6 +94,7 @@ export class Settings {
         // init dev tools listeners
         this.devTools = new DevTools(global);
         this.devTools.init();
+        this.devTools.devToolsPublish.beforePublish = () => this.save({ forPublish: true });
 
         // init dev tools listeners
         this.appResources = new AppResources(global);
@@ -195,7 +196,8 @@ export class Settings {
                                                         <h4 class="card-title mb-0 me-3 text-accent">${__html('%1$', this.app.title)}</h4>
                                                         <div><div class="badge dev-badge bg-danger fw-light po card-title mb-0 ${global.state.dev[this.app.id].status == 'sync' ? "" : "d-none"}" data-id="${attr(this.app.id)}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> ${__html('Syncing')}</div></div></div>
                                                     </div>
-                                                    <p class="form-text mt-0 mb-0">${__html('This app operates in <a href="#">%1$</a> namespace.', this.app.slug)}</div>
+                                                    <p class="form-text mt-0 mb-0">${__html('This app operates in <a href="#">%1$</a> namespace.', this.app.slug)}</p>
+                                                    <p class="form-text app-monitoring-state mt-0 mb-0" data-id="${attr(this.app.id)}" role="status"></p>
                                                 </div>
                                             </div>
                                         </div>
@@ -272,15 +274,13 @@ export class Settings {
         `;
     }
 
-    listeners() {
-
-        // app save listener
-        document.querySelector('.app-save').addEventListener('click', e => {
-
-            e.preventDefault();
-
-            // add data
-            let data = {
+    async save({ forPublish = false } = {}) {
+        if (this.saving) return false;
+        this.saving = true;
+        const saveButton = document.querySelector('.app-save');
+        saveButton.disabled = true;
+        try {
+            const data = {
                 id: this.app.id,
                 title: document.querySelector('#appTitle').value.trim(),
                 slug: slugify(this.app.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g }),
@@ -296,30 +296,14 @@ export class Settings {
                 users: [],
             };
 
-            // console.log("App data", data); return;
-
-            // Remove all files that start with kubeconfig in the app folder, except those in data.clusters
-            const clusterIds = data.clusters.map(id => `kubeconfig-${id}.yaml`);
-            fs.readdirSync(data.path).forEach(file => {
-                if (file.startsWith('kubeconfig') && !clusterIds.includes(file)) {
-                    const filePath = path.join(data.path, file);
-                    fs.unlinkSync(filePath);
-                    log(`Removed kubeconfig file: ${filePath}`);
-                }
-            });
-
-            // Copy kubeconfig from app folder only if missing in clusterIds
+            // Keep existing app identities, including legacy dated kubeconfigs.
+            const hasAppKubeconfig = fs.readdirSync(data.path).some(file => /^kubeconfig.*\.ya?ml$/.test(file));
             data.clusters.forEach(id => {
-
                 if (id == "local") return;
-
-                let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
+                const appFolder = path.join(getDefaultAppPath(), '.kenzap');
                 const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
                 const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
-
-                console.log("Copying kubeconfig from: ", kubeconfigSource);
-
-                if (!fs.existsSync(kubeconfigDestination) && fs.existsSync(kubeconfigSource)) {
+                if (!hasAppKubeconfig && !fs.existsSync(kubeconfigDestination) && fs.existsSync(kubeconfigSource)) {
                     fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
                     log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
                 } else if (!fs.existsSync(kubeconfigSource)) {
@@ -327,58 +311,44 @@ export class Settings {
                 }
             });
 
-            // // Copy kubeconfig from parent folder /.kenzap
-            // let appFolder = getDefaultAppPath() + require('path').sep + '.kenzap';
-
-            // const kubeconfigSource = path.join(appFolder, `kubeconfig-${id}.yaml`);
-            // const kubeconfigDestination = path.join(data.path, `kubeconfig-${id}.yaml`);
-
-            // if (fs.existsSync(kubeconfigSource)) {
-            //     fs.copyFileSync(kubeconfigSource, kubeconfigDestination);
-            //     log(`Kubeconfig copied from ${kubeconfigSource} to ${kubeconfigDestination}`);
-            // } else {
-            //     log(`Kubeconfig file not found at ${kubeconfigSource}`);
-            // }
-
             this.appRegistry.save();
-
-            this.endpoints.save();
-
             this.dockerFile.save();
+            cacheSettings(data);
+            await this.endpoints.save();
 
-            // apply other config files
-            const dirContents = fs.readdirSync(data.path);
-            const secretAndPvcFiles = dirContents.filter(file =>
-                (file.startsWith('secret-') || file.startsWith('pvc-')) &&
-                file.endsWith('.yaml')
-            );
-
-            if (secretAndPvcFiles.length > 0) {
-                // For each cluster in the app's configuration
+            // Publish applies prerequisites through its managed route, not these legacy Save commands.
+            if (!forPublish) {
+                const secretAndPvcFiles = fs.readdirSync(data.path).filter(file =>
+                    (file.startsWith('secret-') || file.startsWith('pvc-')) && file.endsWith('.yaml'));
                 data.clusters.forEach(cluster => {
-
                     const kubeconfigParam = cluster === 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`;
-
-                    // Apply each secret and pvc file
                     secretAndPvcFiles.forEach(file => {
-
                         run_script(`cd ${data.path} && kubectl apply -f ${file} ${kubeconfigParam}`, [], () => { });
-
-                        // const command = `cd ${data.path} && kubectl apply -f ${file} ${kubeconfigParam}`;
-                        // ipcRenderer.send('run-command', command);
                         log(`Applying ${file} to cluster ${cluster}`);
                     });
                 });
             }
-            // run_script(`cd ${cache.path} && kubectl apply -f endpoints.yaml ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], cb);
 
             cacheSettings(data);
+            if (!forPublish) global.state.msg = "Application updated";
+            if (!forPublish && global.state.page === 'app-settings' && global.state.app.id === data.id) {
+                this.destroy();
+                this.init(data.id);
+            }
+            return true;
+        } catch (error) {
+            toast(html(error.message));
+            return false;
+        } finally {
+            this.saving = false;
+            if (saveButton.isConnected) saveButton.disabled = false;
+        }
+    }
 
-            global.state.msg = "Application updated";
-
-            this.destroy();
-
-            this.init(data.id);
+    listeners() {
+        document.querySelector('.app-save').addEventListener('click', async e => {
+            e.preventDefault();
+            return this.save();
         });
 
         // path picker

@@ -1,9 +1,8 @@
-import { __html, getSetting, loadDependencies, parseError, log } from './helpers.js'
+import { __html, getSetting, loadDependencies, parseError } from './helpers.js'
 import fs from "fs"
 import yaml from 'js-yaml';
 import * as path from 'path';
-import { run_script, getKubectlPath } from './dev-tools.js'
-import { getAppKubeconfig } from './app-status-helpers.js'
+import { pollClusterState, monitoringLabel } from './cluster-monitor-client.js'
 
 /**
  * Class representing application statistics.
@@ -40,6 +39,7 @@ export class AppStats {
                     </span>
                 </div>
                 <p class="form-text">${__html('Your app`s resource consumption.')}</p>
+                <p class="form-text monitoring-state" role="status"></p>
                 <div class="d-flex align-items-center justify-content-start mb-2">
                     <div class="container">
                         <div class="row">
@@ -140,75 +140,41 @@ export class AppStats {
 
         self.cache = getSetting(app.id);
 
-        let kubeconfig = getAppKubeconfig(app.id);
-
-        // if (!kubeconfig) return;
-
-        if (!kubeconfig && app.clusters[0] != 'local') return;
-
-        if (app.clusters[0] == 'local') kubeconfig = "";
-
-        if (self.statsInterval) clearInterval(self.statsInterval);
-
+        this.element = document.querySelector(this.selector);
+        if (!this.element || !self.cache.clusters || !self.cache.clusters.length) return;
+        if (this.monitor) this.monitor.stop();
         self.getResourceRange();
+        const notice = this.element.querySelector('.monitoring-state');
+        this.monitor = pollClusterState(this.element, self.cache.clusters[0], 'topPods', result => {
+            const rows = result.data.trim().split('\n').slice(1);
+            let totalCPU = 0;
+            let totalMemory = 0;
+            let samples = 0;
 
-        let kubectl = getKubectlPath();
-
-        let cb = (data) => {
-
-        }
-
-        self.statsInterval = setInterval(() => {
-
-            if (!document.querySelector(".cpu-stats")) { clearInterval(self.statsInterval); return; }
-
-            let proc;
-
-            if (kubeconfig) proc = run_script('cd ' + self.cache.path + ' && ' + kubectl + ' top pods -n ' + app.id + ' --kubeconfig=' + kubeconfig + ' --sum=true', [], cb, false);
-
-            if (!kubeconfig) proc = run_script('cd ' + self.cache.path + ' &&  kubectl config use-context minikube && ' + kubectl + ' top pods -n ' + app.id + ' --sum=true', [], cb, false);
-
-            proc.stdout.on('data', (data) => {
-
-                let output = data.toString();
-
-                // console.log(stats);
-                // Extract rows from the output
-                const rows = output.trim().split('\n').slice(1); // Skip the header row
-                let totalCPU = 0;
-                let totalMemory = 0;
-
-                rows.forEach(row => {
-                    const columns = row.trim().split(/\s+/); // Split by whitespace
-                    if (columns.length >= 3) {
-                        const cpu = columns[1];
-                        const memory = columns[2];
-                        totalCPU += self.parseCPU(cpu);
-                        totalMemory += self.parseMemory(memory);
-                    }
-                });
-
-                // const currentTime = new Date().toLocaleTimeString([], { second: '2-digit',  });
-                this.chart.cpu.push([this.chart.index, totalCPU]);
-                this.chart.memory.push([this.chart.index, totalMemory]);
-
-                this.chart.index += 1;
-
-                if (this.chart.cpu.length > 20) {
-                    this.chart.cpu.shift();
-                }
-
-                if (this.chart.memory.length > 20) {
-                    this.chart.memory.shift();
-                }
-
-                // console.log(`Total CPU: ${totalCPU}m`);
-                // console.log(`Total Memory: ${totalMemory}Mi`);
-
-                self.drawCharts(self);
+            rows.forEach(row => {
+                const columns = row.trim().split(/\s+/);
+                if (columns.length < 3) return;
+                const cpuValue = self.parseCPU(columns[1]);
+                const memoryValue = self.parseMemory(columns[2]);
+                if (!Number.isFinite(cpuValue) || !Number.isFinite(memoryValue)) return;
+                totalCPU += cpuValue;
+                totalMemory += memoryValue;
+                samples += 1;
             });
+            if (!samples) throw new Error('No pod metrics are available in this namespace yet.');
+            notice.textContent = monitoringLabel(result);
+            this.element.classList.remove('monitoring-stale');
 
-        }, 1000);
+            this.chart.cpu.push([this.chart.index, totalCPU]);
+            this.chart.memory.push([this.chart.index, totalMemory]);
+            this.chart.index += 1;
+            if (this.chart.cpu.length > 20) this.chart.cpu.shift();
+            if (this.chart.memory.length > 20) this.chart.memory.shift();
+            self.drawCharts(self);
+        }, error => {
+            notice.textContent = error.message;
+            this.element.classList.add('monitoring-stale');
+        }, { appId: app.id }, 5000);
     }
 
     /**
@@ -247,7 +213,7 @@ export class AppStats {
 
         google.charts.setOnLoadCallback(() => {
 
-            if (!document.querySelector(".cpu-stats")) if (self.statsInterval) clearInterval(self.statsInterval);
+            if (!self.element || !self.element.isConnected) return;
 
             let cpuUsage = Math.round(100 * ((self.chart.cpu).reduce((acc, curr) => acc + curr[1], 0) / self.chart.cpu.length) / self.range.cpu);
 
@@ -281,7 +247,7 @@ export class AppStats {
                 areaOpacity: 0.2
             };
 
-            let chart = new google.visualization.AreaChart(document.querySelector(".cpu-stats"));
+            let chart = new google.visualization.AreaChart(self.element.querySelector(".cpu-stats"));
             chart.draw(data, options);
 
             let ramUsage = Math.round(100 * ((self.chart.memory).reduce((acc, curr) => acc + curr[1], 0) / self.chart.memory.length) / self.range.memory);
@@ -317,7 +283,7 @@ export class AppStats {
                 areaOpacity: 0.2
             };
 
-            let chart2 = new google.visualization.AreaChart(document.querySelector(".ram-stats"));
+            let chart2 = new google.visualization.AreaChart(self.element.querySelector(".ram-stats"));
             chart2.draw(data, options2);
 
         });
@@ -340,6 +306,6 @@ export class AppStats {
 
     destroy() {
 
-        if (this.statsInterval) { log("destroying app stats"); clearInterval(this.statsInterval); }
+        if (this.monitor) this.monitor.stop();
     }
 }

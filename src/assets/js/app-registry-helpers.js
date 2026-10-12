@@ -1,9 +1,9 @@
 
-import global from "./global.js"
-import { __html, hideLoader, API, parseError, getKenzapSettings, saveKenzapSettings, getSetting, getToken } from './helpers.js'
-import fs from "fs"
+import fs from "fs";
 import yaml from 'js-yaml';
 import * as path from 'path';
+import global from "./global.js";
+import { __html, API, getKenzapSettings, getSetting, getToken, hideLoader, parseError } from './helpers.js';
 
 /**
  * Fetches the application registry from the Kenzap API and processes the response.
@@ -63,7 +63,7 @@ export function getCurrentRegistry(app, settings) {
 
 export function getFreeRegistry(app, settings, cb) {
 
-    // get free registry https://api.kenzap-apps.app.kenzap.cloud/v2/?cmd=get_free_registry&app_id=Y4uR3s&app_slug=app-39987
+    // get free registry https://api.kenzap-apps.kenzap.cloud/v2/?cmd=get_free_registry&app_id=Y4uR3s&app_slug=app-39987
     console.log(API() + "?cmd=get_free_registry&app_id=" + settings.id + "&app_slug=kenzap-app");
     fetch(API() + "?cmd=get_free_registry&app_id=" + settings.id + "&app_slug=kenzap-app", {
         method: 'post',

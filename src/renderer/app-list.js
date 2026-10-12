@@ -211,6 +211,7 @@ export class AppList {
                                                                             <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
                                                                         </svg>
                                                                     </span>
+                                                                    <div class="form-text app-monitoring-state p-0 m-0" data-id="${attr(app.id)}" style="font-size:12px;" role="status"></div>
                                                                     <div class="form-text p-0 m-0" style="font-size:12px;">${getFirstEndpoint(app)} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${getFirstEndpoint(app)}" class="bi bi-copy po mb-1 ms-1 copy-record ${attr(getFirstEndpoint(app) ? "" : "d-none")}" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg></div>
                                                                 </td>
                                                                 <td>

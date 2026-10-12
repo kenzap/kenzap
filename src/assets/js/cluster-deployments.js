@@ -1,8 +1,6 @@
 
-import { __html, attr, formatDeploymentStatus } from './helpers.js'
-import { run_script, getKubectlPath } from './dev-tools.js'
-import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import yaml from 'js-yaml';
+import { __html, attr, html, formatDeploymentStatus } from './helpers.js'
+import { pollClusterState, monitoringLabel } from './cluster-monitor-client.js'
 
 export class ClusterDeployments {
 
@@ -49,7 +47,7 @@ export class ClusterDeployments {
 
     render() {
 
-        if (!this.deployments.length) { document.querySelector('.deployment-list').innerHTML = `<tr><td colspan="2">${__html("No deployments to display.")}</td></tr>`; }
+        if (!this.deployments.length) { document.querySelector('.deployment-list').innerHTML = `<tr><td colspan="3">${__html("No deployments to display.")}</td></tr>`; return; }
 
         document.querySelector('.deployment-list').innerHTML = this.deployments.map((deployment, i) => {
 
@@ -98,33 +96,15 @@ export class ClusterDeployments {
 
         this.view();
 
-        let cb = () => { }
-
-        let kubeconfig = getClusterKubeconfig(this.cluster.id);
-
-        let kubectl = getKubectlPath();
-
-        let proc = run_script(kubectl + ' get deployments -A --kubeconfig=' + kubeconfig + ' -o yaml', [], cb, false);
-
-        this.data = '';
-
-        proc.stdout.on('data', (data) => {
-
-            this.data += data.toString();
-        });
-
-        proc.stderr.on('data', (data) => {
-
-            console.error(`ClusterDeployments stderr: ${data}`);
-        });
-
-        proc.on('close', (code) => {
-
-            let parsed = yaml.loadAll(this.data.toString(), 'utf8');
-
-            this.deployments = parsed[0].items;
-
+        const table = document.querySelector('.deployment-list');
+        if (this.monitor) this.monitor.stop();
+        this.monitor = pollClusterState(table, this.cluster.id, 'deployments', result => {
+            table.title = monitoringLabel(result);
+            this.deployments = result.data.items || [];
             this.render();
+        }, error => {
+            table.title = error.message;
+            table.innerHTML = `<tr><td colspan="3" class="text-muted">${html(error.message)}</td></tr>`;
         });
 
         this.listeners();

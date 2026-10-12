@@ -1,5 +1,8 @@
 'use strict';
 
+import { ipcRenderer } from 'electron'
+import bootstrap from 'bootstrap'
+import { initClusterActionMenus } from '../assets/js/cluster-action-menu.js'
 import global from '../assets/js/global.js'
 import { __html, html, attr, toast, initBreadcrumbs, onClick, hideLoader, getKenzapSettings, saveKenzapSettings } from '../assets/js/helpers.js'
 import { DevTools } from '../assets/js/dev-tools.js'
@@ -13,8 +16,27 @@ import { ClusterStats } from './cluster-stats.js'
 import { Footer } from '../assets/js/app-footer.js'
 import { ClusterAdd } from '../assets/js/cluster-add.js'
 import { ClusterLocalAdd } from '../assets/js/cluster-local-add.js'
+import { pollClusterState, monitoringLabel } from '../assets/js/cluster-monitor-client.js'
 import "../assets/libs/bootstrap.5.0.2.1.0.min.css"
 import "../assets/scss/app.css"
+
+const connectionStates = new Map();
+function renderConnectionStatus(status) {
+    connectionStates.set(status.id, status);
+    document.querySelectorAll('.cluster-connection-state').forEach(element => {
+        if (element.dataset.id !== status.id) return;
+        const labels = {
+            connecting: __html('SSH: connecting'), verifying: __html('SSH: verify server'),
+            connected: __html('SSH: connected'), reconnecting: __html('SSH: reconnecting'),
+            error: __html('SSH: connection failed'), disconnected: __html('SSH: disconnected')
+        };
+        element.textContent = labels[status.state] || '';
+        element.title = status.error || '';
+        element.classList.toggle('text-danger', status.state === 'error');
+        element.classList.toggle('text-success', status.state === 'connected');
+    });
+}
+ipcRenderer.on('cluster-connection-status', (_, status) => renderConnectionStatus(status));
 
 /** 
  * Cluster class. Load cluster list page.
@@ -50,6 +72,11 @@ export class ClusterList {
         global.state.clusters = getClusterList(global.state);
 
         this.view();
+
+        connectionStates.forEach(renderConnectionStatus);
+        ipcRenderer.invoke('cluster-connection-list').then(result => {
+            if (result.ok) result.value.forEach(renderConnectionStatus);
+        }).catch(error => console.error('Cannot read SSH connection status', error));
 
         // init
         global.state.nav = new NavigationHeader(global);
@@ -93,6 +120,7 @@ export class ClusterList {
 
         // load apps
         this.listeners();
+        this.monitorClusters();
 
         hideLoader();
     }
@@ -181,7 +209,7 @@ export class ClusterList {
                                                     ${this.clusters.map((cluster) => {
 
             return `
-                                                            <tr>
+                                                            <tr data-cluster-id="${attr(cluster.id)}">
                                                                 <td class="cluster-stats" style="width:46px;" data-id="${attr(cluster.id)}">
                                                                     <div class="edge-status ${attr(cluster.status)}" data-id="${attr(cluster.id)}"></div>
                                                                     <div class="timgc app-settings" data-id="${attr(cluster.id)}">
@@ -201,7 +229,7 @@ export class ClusterList {
                                                                     <div class="form-text p-0 m-0" style="font-size:12px;">${html(cluster.key ? cluster.key : "")} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${attr(cluster.key ? cluster.key : "")}" class="bi bi-copy po mb-1 ms-1 copy-record ${attr(cluster.key ? "" : "d-none")}" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg></div>
                                                                 </td>
                                                                 <td>
-                                                                    <div class="form-text- p-0 m-0 d-flex align-items-center">${cluster.nodes ? cluster.nodes.length : (cluster.servers ? cluster.servers.length : "0")}</div>
+                                                                    <div class="cluster-node-count form-text- p-0 m-0 d-flex align-items-center">${cluster.nodes ? cluster.nodes.length : (cluster.servers ? cluster.servers.length : "0")}</div>
                                                                     <div class="${cluster.status == "unpublished" ? "d-none" : ""}">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="currentColor" title="${__html("Open terminal console")}" class="bi bi-terminal form-text m-0 ms-3 po start-terminal d-none" viewBox="0 0 16 16" data-id="${attr(cluster.id)}">
                                                                             <path d="M6 9a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 6 9M3.854 4.146a.5.5 0 1 0-.708.708L4.793 6.5 3.146 8.146a.5.5 0 1 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2z"/>
@@ -210,31 +238,38 @@ export class ClusterList {
                                                                     </div>
                                                                 </td>
                                                                 <td class="text-start" style="min-width:100px;" title="${cluster.status == 'error' ? attr(cluster.error ? cluster.error.reason : "") : ''}">
-                                                                    ${formatClusterStatus(cluster)}
+                                                                    <div class="cluster-health">${formatClusterStatus(cluster)}</div>
+                                                                    <div class="form-text cluster-connection-state" data-id="${attr(cluster.id)}" style="font-size:12px;"></div>
+                                                                    <div class="form-text cluster-monitor-state m-0" style="font-size:12px;" role="status"></div>
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-cloud-arrow-up form-text m-0 ms-3 po d-none app-publish" data-id="${attr(cluster.id)}" viewBox="0 0 16 16">
                                                                         <path fill-rule="evenodd" d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708z"/>
                                                                         <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
                                                                     </svg>
                                                                 </td>
                                                                 <td class="text-end" >
-                                                                    <div class="dropdown applicationsActionsCont ${cluster.id == "local" ? "d-none" : ""}">
-                                                                        <svg id="applicationsActions0" data-bs-toggle="dropdown" data-boundary="viewport" aria-expanded="false" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-three-dots-vertical dropdown-toggle po" viewBox="0 0 16 16">
+                                                                    <div class="dropdown applicationsActionsCont">
+                                                                        <button id="clusterActions-${attr(cluster.id)}" class="cluster-actions-toggle dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="${attr(__html('Cluster actions'))}">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-three-dots-vertical" viewBox="0 0 16 16" aria-hidden="true">
                                                                             <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"></path>
                                                                         </svg>
-                                                                        <ul class="dropdown-menu" aria-labelledby="applicationsActions0" style="">
-                                                                            <li>
+                                                                        </button>
+                                                                        <ul class="dropdown-menu dropdown-menu-end cluster-actions-menu" aria-labelledby="clusterActions-${attr(cluster.id)}">
+                                                                            <li class="${cluster.id == 'local' ? 'd-none' : ''}"><a class="dropdown-item cluster-ssh-connect" href="#" data-id="${attr(cluster.id)}">${__html('Connect via SSH')}</a></li>
+                                                                            <li class="${cluster.id == 'local' ? 'd-none' : ''}"><a class="dropdown-item cluster-ssh-export" href="#" data-id="${attr(cluster.id)}">${__html('Export SSH kubeconfig')}</a></li>
+                                                                            <li class="${cluster.id == 'local' ? 'd-none' : ''}"><a class="dropdown-item cluster-ssh-disconnect" href="#" data-id="${attr(cluster.id)}">${__html('Disconnect SSH')}</a></li>
+                                                                            <li class="${cluster.id == "local" ? "d-none" : ""}">
                                                                                 <a class="dropdown-item po cluster-edit d-flex align-items-center" href="#" data-bs-toggle="modal" data-bs-target=".modal" data-id="${attr(cluster.id)}" >
                                                                                     <div class="d-flex"><svg xmlns="http://www.w3.org/2000/svg" width="23" height="18" fill="currentColor" class="bi bi-gear p-0 form-text m-0 me-2" viewBox="0 0 16 16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z"/></svg></div>
                                                                                     ${__html('Edit')}
                                                                                 </a>
                                                                             </li>
-                                                                            <li>
+                                                                            <li class="${cluster.id == "local" ? "d-none" : ""}">
                                                                                 <a class="dropdown-item po cluster-stats d-flex align-items-center" href="#" data-id="${attr(cluster.id)}" >
                                                                                     <div class="d-flex"><svg xmlns="http://www.w3.org/2000/svg" width="23" height="16" fill="currentColor" class="bi bi-bar-chart-line my-0 po form-text me-2" viewBox="0 0 16 16"><path d="M11 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h1V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7h1zm1 12h2V2h-2zm-3 0V7H7v7zm-5 0v-3H2v3z"/></svg></div>
                                                                                     ${__html('Analytics')}
                                                                                 </a>
                                                                             </li>
-                                                                            <li>
+                                                                            <li class="${cluster.id == "local" ? "d-none" : ""}">
                                                                                 <a class="dropdown-item po cluster-kubeconfig d-flex align-items-center" href="#" data-id="${attr(cluster.id)}" >
                                                                                     <div class="d-flex"><svg xmlns="http://www.w3.org/2000/svg" width="23" height="18" fill="currentColor" class="bi bi-download p-0 form-text m-0 me-2" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg></div>
                                                                                     ${__html('Kubeconfig')}
@@ -270,7 +305,57 @@ export class ClusterList {
         `;
     }
 
+    monitorClusters() {
+        if (this.monitors) this.monitors.forEach(monitor => monitor.stop());
+        this.monitors = [];
+        this.clusters.forEach(cluster => {
+            if (cluster.status === 'creating') return;
+            const row = document.querySelector(`tr[data-cluster-id="${cluster.id}"]`);
+            if (!row) return;
+            const health = row.querySelector('.cluster-health');
+            const notice = row.querySelector('.cluster-monitor-state');
+            const dot = row.querySelector('.edge-status');
+            this.monitors.push(pollClusterState(row, cluster.id, 'nodes', result => {
+                const nodes = result.data.items || [];
+                const ready = nodes.filter(node => (node.status.conditions || []).some(condition => condition.type === 'Ready' && condition.status === 'True')).length;
+                const healthy = nodes.length > 0 && ready === nodes.length;
+                row.querySelector('.cluster-node-count').textContent = String(nodes.length);
+                health.innerHTML = `<div class="badge ${healthy ? 'bg-success' : 'bg-warning text-dark'} fw-light">${healthy ? __html('Healthy') : nodes.length ? __html('Needs attention') : __html('No nodes')}</div>`;
+                notice.textContent = monitoringLabel(result);
+                dot.className = `edge-status ${healthy ? 'online' : 'pending'}`;
+                dot.title = `${ready}/${nodes.length} nodes ready. ${monitoringLabel(result)}`;
+            }, error => {
+                health.innerHTML = `<div class="badge bg-secondary fw-light">${__html('Status unavailable')}</div>`;
+                row.querySelector('.cluster-node-count').textContent = '-';
+                notice.textContent = error.message;
+                dot.className = 'edge-status unknown';
+                dot.title = error.message;
+            }));
+        });
+    }
+
     listeners() {
+
+        initClusterActionMenus(bootstrap.Dropdown);
+
+        const connectionAction = (selector, channel, message) => {
+            onClick(selector, async e => {
+                e.preventDefault();
+                const link = e.currentTarget;
+                if (link.classList.contains('disabled')) return;
+                link.classList.add('disabled');
+                try {
+                    const result = await ipcRenderer.invoke(channel, link.dataset.id);
+                    if (!result.ok) throw new Error(result.error);
+                    if (channel !== 'cluster-connection-export' || result.value) toast(__html(message));
+                } catch (error) {
+                    toast(html(error.message));
+                } finally { link.classList.remove('disabled'); }
+            });
+        };
+        connectionAction('.cluster-ssh-connect', 'cluster-connection-connect', 'SSH connection ready');
+        connectionAction('.cluster-ssh-disconnect', 'cluster-connection-disconnect', 'SSH disconnected');
+        connectionAction('.cluster-ssh-export', 'cluster-connection-export', 'SSH kubeconfig exported. Keep the app connected while using this file.');
 
         // app settings
         onClick(".cluster-edit", e => {
@@ -326,7 +411,7 @@ export class ClusterList {
         });
 
         // delete cluster
-        onClick(".app-delete", e => {
+        onClick(".app-delete", async e => {
 
             e.preventDefault();
 
@@ -334,9 +419,19 @@ export class ClusterList {
 
             if (!confirm("Are you sure you want to delete this cluster?")) return;
 
+            try {
+                const result = await ipcRenderer.invoke('cluster-connection-disconnect', id);
+                if (!result.ok) throw new Error(result.error);
+            } catch (error) { toast(html(error.message)); return; }
+
             this.clusters = this.clusters.filter(cluster => cluster.id !== id);
 
-            saveKenzapSettings({ "clusters": this.clusters });
+            saveKenzapSettings({
+                "clusters": this.clusters,
+                "localClusterEnabled": id === "local" ? false : global.state.settings.localClusterEnabled
+            });
+
+            global.state.msg = __html('Cluster removed');
 
             this.init();
         });

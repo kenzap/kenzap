@@ -1,7 +1,6 @@
 import global from "./global.js"
 import { __html, attr, html, onClick, getSetting, toast, onChange, showLoader, hideLoader, API, loadDependencies, parseError } from './helpers.js'
-import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
-import { run_script, getKubectlPath } from './dev-tools.js'
+import { pollClusterState, monitoringLabel } from './cluster-monitor-client.js'
 import { formatClusterNode } from './cluster-list-helpers.js'
 
 /**
@@ -61,52 +60,26 @@ export class ClusterNodeList {
 
     refreshCharts() {
 
-        if (this.statsInterval) clearInterval(this.statsInterval);
-
-        this.statsInterval = setInterval(() => { this.renderTable(); }, 60000);
-
         this.renderTable();
     }
 
     renderTable() {
 
-        let kubeconfig = getClusterKubeconfig(this.cluster.id);
-
-        if (!kubeconfig) return;
-
-        this.data = "";
-
-        if (!document.querySelector("cluster-node-list")) { clearInterval(this.statsInterval); return; }
-
-        let kubectl = getKubectlPath();
-
-        let proc = run_script(kubectl + ' get nodes -o json --kubeconfig=' + kubeconfig, [], () => { }, false);
-
-        proc.stdout.on('data', (data) => {
-
-            this.data += data.toString();
-
-            // console.log(`Cluster Node Stats: ${this.data}`);
-        });
-
-        proc.stdout.on('error', (data) => {
-
-            // console.error(`Cluster Node Stats Error: ${data}`);
-        });
-
-        proc.on('close', (code) => {
-
-            let data = JSON.parse(this.data);
-
-            document.querySelector(".cluster-node-list").innerHTML = `
+        const table = document.querySelector('.cluster-node-list');
+        if (!table) return;
+        if (this.monitor) this.monitor.stop();
+        this.monitor = pollClusterState(table, this.cluster.id, 'nodes', result => {
+            const data = result.data;
+            table.title = monitoringLabel(result);
+            table.innerHTML = `
 
                 ${data.items.map(item =>
                 `<tr>
                         <td style="min-width: 250px;">
-                            <div class="mb-0">${item.metadata.name}</div>
-                            <div class="form-text my-0">${item.status.addresses[0].address}</div>
+                            <div class="mb-0">${html(item.metadata.name)}</div>
+                            <div class="form-text my-0">${html(item.status.addresses.length ? item.status.addresses[0].address : '')}</div>
                         </td>
-                        <td class="form-text">${formatClusterNode({ status: "ready" })}</td>
+                        <td class="form-text">${formatClusterNode({ status: (item.status.conditions || []).some(condition => condition.type === 'Ready' && condition.status === 'True') ? 'ready' : 'error' })}</td>
                         <td>
                             <div>${item.status.nodeInfo.kubeletVersion}</div>
                             <div class="form-text my-0 d-none-">${item.status.nodeInfo.architecture}</div>
@@ -132,7 +105,7 @@ export class ClusterNodeList {
             ).join('')}
             `;
 
-            document.querySelector(".cluster-node-list").innerHTML += `
+            table.innerHTML += `
                 <tr>
                     <td>
                     
@@ -157,6 +130,9 @@ export class ClusterNodeList {
                     </td>
                 </tr>
                 `;
+        }, error => {
+            table.title = error.message;
+            table.innerHTML = `<tr><td colspan="5" class="text-muted">${html(error.message)}</td></tr>`;
         });
     }
 

@@ -1,11 +1,9 @@
 
 import global from "./global.js"
-import { __html, attr, onClick, getSetting, log } from './helpers.js'
-import { getAppKubeconfig } from './app-status-helpers.js'
-import { validPath, getDevspacePath, run_script } from './dev-tools.js'
-import child_process from "child_process"
+import { __html, attr, onClick, getSetting, log, toast } from './helpers.js'
+import { validPath } from './dev-tools.js'
+import { ipcRenderer } from 'electron'
 import fs from "fs"
-import yaml from 'js-yaml';
 
 export class DevToolsConsole {
 
@@ -46,7 +44,7 @@ export class DevToolsConsole {
 
         devspaceFiles.forEach(file => {
 
-            document.querySelector('.devToolsConsoleCont[data-id=' + id + '] ul').innerHTML += `<li><a class="dropdown-item po dev-tools-console-start" data-file="${file}" href="#">` + file.replace('devspace-', '').replace('.yaml', '') + `</a></li>`;
+            document.querySelector('.devToolsConsoleCont[data-id=' + id + '] ul').innerHTML += `<li><a class="dropdown-item po dev-tools-console-start" data-file="${attr(file)}" href="#">` + attr(file.replace('devspace-', '').replace('.yaml', '')) + `</a></li>`;
         });
 
         if (devspaceFiles.length == 0) return;
@@ -56,7 +54,7 @@ export class DevToolsConsole {
             this.openConsole(app, devspaceFiles[0]);
 
             // Close the dropdown menu
-            const dropdownMenu = document.querySelector('.devToolsConsoleCont .dropdown-menu.show');
+            const dropdownMenu = document.querySelector('.devToolsConsoleCont[data-id=' + id + '] .dropdown-menu.show');
             if (dropdownMenu) {
                 dropdownMenu.classList.remove('show');
             }
@@ -64,7 +62,7 @@ export class DevToolsConsole {
 
         if (devspaceFiles.length > 1) {
 
-            onClick('.dev-tools-console-start', e => {
+            onClick('.devToolsConsoleCont[data-id=' + id + '] .dev-tools-console-start', e => {
 
                 e.preventDefault();
 
@@ -73,7 +71,7 @@ export class DevToolsConsole {
                 this.openConsole(app, file);
 
                 // Close the dropdown menu
-                const dropdownMenu = document.querySelector('.devToolsConsoleCont .dropdown-menu.show');
+                const dropdownMenu = document.querySelector('.devToolsConsoleCont[data-id=' + id + '] .dropdown-menu.show');
                 if (dropdownMenu) {
                     dropdownMenu.classList.remove('show');
                 }
@@ -81,60 +79,13 @@ export class DevToolsConsole {
         }
     }
 
-    openConsole(app, file) {
-
-        let kubeconfig = getAppKubeconfig(app.id);
-
-        if (!kubeconfig && app.clusters[0] != 'local') return;
-
-        if (app.clusters[0] == 'local') kubeconfig = "";
-
-        let cache = getSetting(app.id);
-
-        let cb = () => { };
-
-        let app_file = file.replace('devspace-', 'app-').replace('devspace', 'app');
-
-        let container = "";
-
-        if (fs.existsSync(`${cache.path}/${app_file}`)) {
-
-            let app = yaml.loadAll(fs.readFileSync(`${cache.path}/${app_file}`, 'utf8'));
-
-            if (app[0].metadata.name.length > 1) {
-
-                container = app[0].metadata.name;
-            }
-
-        } else {
-            log(`File ${app_file} does not exist in path ${cache.path}`);
+    async openConsole(app, file) {
+        try {
+            if (!app) throw new Error(__html('Select an app before opening its terminal.'));
+            const result = await ipcRenderer.invoke('app-pod-console-open', { appId: app.id, file });
+            if (!result || !result.ok) throw new Error(result && result.error || __html('Unable to open the pod terminal.'));
+        } catch (error) {
+            toast(error.message);
         }
-
-        let args = [];
-
-        if (kubeconfig == "") child_process.spawn(
-            `echo "cd ${cache.path} && kubectl config use-context minikube && devspace -n ${app.id} ${container.length ? '-c ' + container : ""} enter --config=${file}; rm /tmp/console.sh" > /tmp/console.sh; chmod +x /tmp/console.sh; open -a Terminal /tmp/console.sh`,
-            args,
-            {
-                encoding: 'utf8',
-                stdio: 'pipe',
-                env: { ...process.env, FORCE_COLOR: true },
-                shell: true
-            }
-        );
-
-        // log(`echo "cd ${cache.path} && devspace -n ${app.id} enter --config=${file} --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh; chmod +x /tmp/console.sh; open -a Terminal /tmp/console.sh`)
-
-        if (kubeconfig != "") child_process.spawn(
-            `echo "cd ${cache.path} && devspace -n ${app.id} ${container.length ? '-c ' + container : ""} enter --config=${file} --kubeconfig=${kubeconfig}; rm /tmp/console.sh" > /tmp/console.sh; chmod +x /tmp/console.sh; open -a Terminal /tmp/console.sh`,
-            args,
-            {
-                encoding: 'utf8',
-                stdio: 'pipe',
-                env: { ...process.env, FORCE_COLOR: true },
-                shell: true
-            }
-        );
     }
 }
-

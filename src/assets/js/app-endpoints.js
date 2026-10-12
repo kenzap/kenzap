@@ -1,12 +1,11 @@
 
-import { clipboard } from 'electron'
-import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, saveKenzapSettings, API, log } from './helpers.js'
+import { clipboard, ipcRenderer } from 'electron'
+import { __html, html, attr, onClick, simulateClick, toast, getSetting, parseError, onChange, onKeyUp, getKenzapSettings, saveKenzapSettings, API, log, getToken, hideLoader } from './helpers.js'
 import { http, https } from './app-registry-helpers.js'
 import yaml from 'js-yaml';
 import fs from "fs"
-import { run_script } from './dev-tools.js'
+import { EndpointState } from './endpoint-state.js'
 import * as path from 'path';
-const os = require('os');
 
 export class Endpoints {
 
@@ -42,9 +41,9 @@ export class Endpoints {
                         <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
                     </svg>
                 </div>
-                <p class="form-text">${__html('A list of public endpoints and services.')}</p>
+                <p class="form-text">${__html('Public endpoints and services. Disabled routes are retained; save to apply changes.')}</p>
                 <div class="mb-3 row">
-                    <label for="registryDomain" class="col-sm-2 col-form-label">${__html('Active')}</label>
+                    <label for="registryDomain" class="col-sm-2 col-form-label">${__html('Configured')}</label>
                     <div class="col-sm-10">
                         <div class="table-responsive">
                             <table class="table table-hover table-borderless align-middle table-striped- table-p-list mb-0" style="min-width:300px;">
@@ -72,103 +71,26 @@ export class Endpoints {
 
         let cache = getSetting(this.app.id);
 
-        // render newly added endpoints (after ui is rendered)
-        if (typeof this.services !== "undefined") {
-
-            // no records found
-            if (!this.services.length) { if (document.querySelector('.endpoint-list')) document.querySelector('.endpoint-list').innerHTML = `<tr><td colspan="2">${__html("No endpoints created.")}</td></tr>`; }
-
-            if (document.querySelector(this.selector + ' .endpoint-list')) document.querySelector(this.selector + ' .endpoint-list').innerHTML = this.services.map((service, i) => {
-
-                this.usedPorts.push(service.port);
-
-                return this.struct(i, service);
-
-            }).join('');
-        }
-
-        // render from YAML (first time loading)
         if (typeof this.services === "undefined") {
-
-            // console.log("render endpoints from YAML: ", this.app.id, cache.path);
-
-            // read endpoints
-            if (cache.path) if (fs.existsSync(path.join(cache.path, 'endpoints.yaml'))) {
-
-                try {
-
-                    this.endpoints = [];
-                    this.services = [];
-
-                    const endpoints = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'endpoints.yaml'), 'utf8'));
-
-                    // log("render endpoints", endpoints);
-
-                    // no records found
-                    if (!endpoints.length) { if (document.querySelector('.endpoint-list').innerHTML) document.querySelector('.endpoint-list').innerHTML = `<tr><td colspan="2">${__html("No endpoints created.")}</td></tr>`; }
-
-                    endpoints.forEach(endpoint => {
-
-                        this.annotations = endpoint.metadata.annotations;
-
-                        if (endpoint.kind == "Ingress") {
-
-                            endpoint.spec.rules.map((rule, i) => {
-
-                                this.usedPorts.push(rule.http.paths[0].backend.service.port.number);
-
-                                let e = { "host": rule.host, "port": rule.http.paths[0].backend.service.port.number, "name": rule.http.paths[0].backend.service.name, "slug": this.app.slug, "private": rule.http.paths[0].backend.service.name + "." + endpoint.metadata.namespace, "active_public": 1, "active_private": 1 };
-
-                                this.endpoints.push(e);
-                            });
-                        }
-
-                        if (endpoint.kind == "Service") {
-
-                            let service = { "host": "", "port": endpoint.spec.ports[0].port, "name": endpoint.metadata.name, "slug": this.app.slug, "private": endpoint.metadata.name + "." + endpoint.metadata.namespace, "selector_app": endpoint.spec.selector.app, "active_public": 0, "active_private": 1 };
-
-                            this.services.push(service);
-                        }
-                    });
-
-                    // map endpoints and services
-                    this.services.map((service, j) => {
-                        this.endpoints.map((endpoint, i) => {
-                            if (endpoint.name == service.name) {
-
-                                this.services[j].host = endpoint.host;
-                                this.services[j].active_public = 1;
-                            }
-                        });
-                    });
-
-                    // render services
-                    if (document.querySelector(this.selector + ' .endpoint-list')) document.querySelector(this.selector + ' .endpoint-list').innerHTML = this.services.map((service, i) => {
-
-                        // this.usedPorts.push(rule.http.paths[0].backend.service.port.number);
-
-                        let s = { "host": service.host ? service.host : "", "port": service.port, "name": service.name, "slug": service.slug, "private": service.private, "active_public": service.host ? 1 : 0, "active_private": 1 };
-
-                        return this.struct(i, s);
-
-                    }).join('');
-
-                    // log("services", this.services);
-                    // log("endpoints", this.endpoints);
-
-                    this.servicesOriginal = JSON.parse(JSON.stringify(this.services));
-                    this.endpointsOriginal = JSON.parse(JSON.stringify(this.endpoints));
-
-                } catch (err) {
-
-                    parseError(err);
-                }
+            try {
+                this.services = cache.path ? new EndpointState(cache.path, this.app).load() : [];
+                this.servicesOriginal = this.cloneResource(this.services);
+            } catch (error) {
+                this.loadError = error;
+                this.services = [];
+                parseError(error);
             }
         }
+        this.usedPorts = this.services.map(service => service.port);
+        const list = document.querySelector(this.selector + ' .endpoint-list');
+        if (list) list.innerHTML = this.services.length
+            ? this.services.map((service, i) => this.struct(i, service)).join('')
+            : `<tr><td colspan="2">${__html('No endpoints created.')}</td></tr>`;
     }
 
     struct(i, endpoint) {
 
+        endpoint = { ...endpoint, active_public: endpoint.active_private && endpoint.active_public };
         let host = endpoint.host ? endpoint.host : "";
 
         host = (this.app.clusters[0] == 'local') ? http(host) : https(host);
@@ -251,7 +173,7 @@ export class Endpoints {
                 `
             <div class="btn-group" role="group" aria-label="Basic example">
                 <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Close")}</button>
-                <button id="btn-primary" type="button" class="btn btn-outline-primary add-endpoint-btn" data-i=${e.currentTarget.dataset.i ? e.currentTarget.dataset.i : ""} data-action="${action}">${action == 'edit' ? __html("Edit endpoint") : __html("Add endpoint")}</button>
+                <button id="btn-primary" type="button" class="btn btn-outline-primary add-endpoint-btn" data-i=${e.currentTarget.dataset.i ? e.currentTarget.dataset.i : ""} data-action="${action}">${action == 'edit' ? __html("Apply") : __html("Add endpoint")}</button>
             </div>
             `;
 
@@ -332,7 +254,7 @@ export class Endpoints {
 
             onKeyUp("#cluster-name", e => { if (action != 'edit') nameType(e); });
             onChange("#cluster-name", e => { if (action != 'edit') nameType(e); });
-            onChange("#active_private", e => { if (!e.currentTarget.checked) { document.querySelector("#active_public").checked = false; document.querySelector(".public-cnt").style = "opacity:0.4;"; document.querySelector("#active_public").setAttribute('disabled', true); } else { document.querySelector("#active_public").removeAttribute('disabled'); document.querySelector(".public-cnt").style = "opacity:1;"; } });
+            onChange("#active_private", e => { if (!e.currentTarget.checked) { document.querySelector(".public-cnt").style = "opacity:0.4;"; document.querySelector("#active_public").setAttribute('disabled', true); } else { document.querySelector("#active_public").removeAttribute('disabled'); document.querySelector(".public-cnt").style = "opacity:1;"; } });
             onClick(".add-endpoint-btn", e => {
 
                 let allow = true;
@@ -349,18 +271,10 @@ export class Endpoints {
                 let active_private = this.modal.querySelector("#active_private").checked ? 1 : 0;
                 let active_public = this.modal.querySelector("#active_public").checked ? 1 : 0;
 
-                if (name.length < 2) { allow = false; this.modal.querySelector("#cluster-name").setCustomValidity(__html("Endpoint too short")); this.modal.querySelector(".cluster-name-notice").innerHTML = __html("Name too short"); this.modal.querySelector("#cluster-name").parentElement.classList.add('is-invalid'); }
+                if (name.length > 63 || !/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(name)) { allow = false; this.modal.querySelector("#cluster-name").setCustomValidity(__html("Invalid service name")); this.modal.querySelector(".cluster-name-notice").innerHTML = __html("Use a lowercase Kubernetes service name"); this.modal.querySelector("#cluster-name").parentElement.classList.add('is-invalid'); }
                 this.modal.querySelector("#cluster-name").parentElement.parentElement.classList.add('was-validated');
 
-                let regex = /[^a-z_]/g;
-                if (regex.test(name)) { allow = false; this.modal.querySelector("#cluster-name").setCustomValidity(__html("Wrong characters")); this.modal.querySelector(".cluster-name-notice").innerHTML = __html("Wrong characters found"); this.modal.querySelector("#cluster-name").parentElement.classList.add('is-invalid'); }
-                this.modal.querySelector("#cluster-name").parentElement.parentElement.classList.add('was-validated');
-
-                if (port.length < 2 || port.length > 4) { allow = false; this.modal.querySelector("#cluster-port").setCustomValidity(__html("Wrong port number")); this.modal.querySelector(".cluster-port-notice").innerHTML = __html("Wrong port number"); }
-                this.modal.querySelector("#cluster-port").parentElement.parentElement.classList.add('was-validated');
-
-                regex = /[^\d+$]/g;
-                if (regex.test(port)) { allow = false; this.modal.querySelector("#cluster-port").setCustomValidity(__html("Wrong characters")); this.modal.querySelector(".cluster-port-notice").innerHTML = __html("Port number should be numeric"); }
+                if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) { allow = false; this.modal.querySelector("#cluster-port").setCustomValidity(__html("Wrong port number")); this.modal.querySelector(".cluster-port-notice").innerHTML = __html("Port must be between 1 and 65535"); }
                 this.modal.querySelector("#cluster-port").parentElement.parentElement.classList.add('was-validated');
 
                 if (!allow) return false;
@@ -375,14 +289,14 @@ export class Endpoints {
                     this.services[index].active_public = active_public;
                     this.services[index].active_private = active_private;
 
-                    toast(__html("Endpoint updated"));
+                    toast(__html("Endpoint updated. Save to apply changes."));
                 } else {
 
                     let endpoint = { "host": host, "port": port, "name": name, "slug": this.app.slug, "private": name + "." + this.app.slug, "active_public": active_public, "active_private": active_private };
 
                     this.services.push(endpoint);
 
-                    toast(__html("Endpoint created"));
+                    toast(__html("Endpoint created. Save to apply changes."));
                 }
 
                 // close modal
@@ -405,12 +319,10 @@ export class Endpoints {
         });
 
         // sync endpoints
-        onClick(this.selector + " .sync-endpoints", e => {
-
-            let cb = () => { }
-            run_script('cd ' + cache.path + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-sg.yaml', [], cb);
-
-            toast(__html('Changes applied'));
+        onClick(this.selector + " .sync-endpoints", async e => {
+            e.preventDefault();
+            try { await this.save(); toast(__html('Changes applied')); }
+            catch (error) { parseError(error); }
         });
 
         // edit variable
@@ -451,7 +363,7 @@ export class Endpoints {
 
             try {
 
-                const endpoints = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'endpoints.yaml'), 'utf8'));
+                const endpoints = yaml.loadAll(fs.readFileSync(path.join(cache.path, 'endpoints.yaml'), 'utf8')).filter(Boolean);
 
                 endpoints.forEach(endpoint => {
 
@@ -482,116 +394,24 @@ export class Endpoints {
         return this.annotations;
     }
 
-    save() {
+    cloneResource(resource) {
+
+        if (!resource) return null;
+
+        return JSON.parse(JSON.stringify(resource));
+    }
+
+    async save() {
 
         let cache = getSetting(this.app.id);
-
-        let annotations = this.getAnnotations(cache);
-
-        // skip save if can not read annotations
-        if (!annotations) return;
-
-        // skip save if no changes
-        // if (JSON.stringify(this.servicesOriginal) === JSON.stringify(this.services)) { log("no change"); return; }
-
+        if (this.loadError) throw this.loadError;
+        if (!cache.path || typeof this.services === 'undefined') throw new Error('Load the app workspace before saving endpoints.');
+        const store = new EndpointState(cache.path, { ...this.app, ...cache, annotations: this.getAnnotations(cache) });
+        store.save(this.services, this.servicesOriginal);
+        const result = await ipcRenderer.invoke('app-endpoints-deploy', { appId: this.app.id });
+        if (!result.ok) throw new Error('Endpoints saved locally, but deployment failed: ' + result.error);
+        this.servicesOriginal = this.cloneResource(this.services);
         this.createEndpoints();
-
-        // handle ingress
-        let ingress = {
-            apiVersion: "networking.k8s.io/v1",
-            kind: "Ingress",
-            metadata: {
-                name: this.app.slug + "-ingress",
-                namespace: this.app.slug,
-                annotations: annotations
-            },
-            spec: {
-                ingressClassName: "nginx",
-                rules: []
-            }
-        };
-
-        // skip certificates for local apps
-        if (this.app.clusters[0] != "local") ingress.spec.tls = [{ hosts: [], secretName: "letsencrypt-prod" }];
-
-        let services = [];
-
-        if (typeof this.services === "undefined") return;
-
-        this.services.forEach(service => {
-
-            if (!service.active_private) return;
-
-            // generate services
-            services.push({
-                apiVersion: "v1",
-                kind: "Service",
-                metadata: {
-                    name: service.name,
-                    namespace: service.slug
-                },
-                spec: {
-                    type: "ClusterIP",
-                    selector: {
-                        app: service.selector_app ? service.selector_app : this.app.slug + "-" + service.name
-                    },
-                    ports: [
-                        {
-                            port: parseInt(service.port),
-                            name: "http"
-                        }
-                    ]
-                }
-            });
-
-            if (!service.active_public) return;
-
-            // skip certificates for local apps
-            if (this.app.clusters[0] != "local") ingress.spec.tls[0].hosts.push(service.host);
-
-            // generate ingress hosts
-            ingress.spec.rules.push({
-                host: service.host,
-                http: {
-                    paths: [
-                        {
-                            path: "/",
-                            pathType: "Prefix",
-                            backend: {
-                                service: {
-                                    name: service.name,
-                                    port: {
-                                        number: parseInt(service.port)
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                }
-            });
-        });
-
-        if (ingress.spec.rules.length) services.unshift(ingress);
-
-        // no open hosts, delete ingress
-        if (!ingress.spec.rules.length) {
-            this.app.clusters.forEach(cluster => {
-                run_script(`cd ${cache.path} && kubectl delete ingress ${this.app.slug}-ingress ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], () => { });
-            });
-        }
-
-        // convert json to final endpoints.yaml file
-        let endpointFile = services.map(ef => { return yaml.dump(ef, {}); }).join("---\n");
-
-        // store to file
-        try { fs.writeFileSync(path.join(cache.path, 'endpoints.yaml'), endpointFile, 'utf-8'); } catch (e) { console.log(e); }
-
-        let cb = () => { }
-
-        // apply changes to cluster
-        this.app.clusters.forEach(cluster => {
-            run_script(`cd ${cache.path} && kubectl apply -f endpoints.yaml ${cluster == 'local' ? '' : `--kubeconfig=kubeconfig-${cluster}.yaml`}`, [], cb);
-        });
 
         // apply changes to /etc/hosts
         if (this.app.clusters[0] == "local") {
@@ -600,7 +420,7 @@ export class Endpoints {
 
             this.services.forEach(service => {
 
-                if (!service.active_public) return;
+                if (!service.active_private || !service.active_public) return;
 
                 hosts.push(service.host);
             });
@@ -663,7 +483,7 @@ export class Endpoints {
 
             settings.clusters.forEach(cluster => {
 
-                if (this.app.clusters.includes(cluster.id)) ips.push(cluster.servers[0].server);
+                if (this.app.clusters.includes(cluster.id) && cluster.servers && cluster.servers[0]) ips.push(cluster.servers[0].server);
             });
 
             // let cluster = settings.clusters.find(cluster => cluster.id == this.app.clusters[0]);
@@ -675,7 +495,8 @@ export class Endpoints {
         // log(this.services);
 
         // get free registry https://api.kenzap-apps.app.kenzap.cloud/v2/?cmd=create_endpoints&kenzap_id=Y4uR3s&app_slug=app-39987
-        fetch(API() + "?cmd=create_endpoints&kenzap_id=" + settings.id + "&app_id=" + this.app.id + "&endpoints=" + JSON.stringify(this.services), {
+        const endpoints = this.services.map(service => ({ ...service, active_public: service.active_private && service.active_public ? 1 : 0 }));
+        fetch(API() + "?cmd=create_endpoints&kenzap_id=" + settings.id + "&app_id=" + this.app.id + "&endpoints=" + JSON.stringify(endpoints), {
             method: 'post',
             headers: {
                 'Accept': 'application/json',

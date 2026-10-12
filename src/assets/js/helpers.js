@@ -9,6 +9,16 @@ export const version = "1.0.7";
 // cross platform Kenzap home directory
 export const kenzapdir = path.join(process.platform === "win32" ? process.env.HOMEPATH : process.env.HOME, 'Kenzap');
 
+function createDefaultLocalCluster() {
+
+    return {
+        id: "local",
+        "name": __html("Minikube"),
+        status: 'active',
+        servers: [{ id: "minikube", status: "active", type: "minikube", server: "127.0.0.1" }]
+    };
+}
+
 /**
  * @name API
  * @description Return API URL, product or development
@@ -178,7 +188,14 @@ export function getKenzapSettings() {
 
     if (!settings.clusters) settings.clusters = [];
 
-    settings.clusters.push({ id: "local", "name": __html("Minikube"), status: 'active', servers: [{ id: "minikube", status: "active", type: "minikube", server: "127.0.0.1" }] });
+    if (settings.localClusterEnabled === false) {
+        settings.clusters = settings.clusters.filter(cluster => cluster.id !== "local");
+        return settings;
+    }
+
+    if (!settings.clusters.find(cluster => cluster.id === "local")) {
+        settings.clusters.push(createDefaultLocalCluster());
+    }
 
     return settings;
 }

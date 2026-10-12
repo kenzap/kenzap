@@ -62,7 +62,7 @@ export function checkEnvironment() {
 
     const requiredCommands = {
         // docker: ['docker --version', 'Docker', 'https://docs.docker.com/desktop/install/mac-install/', 'Please launch Docker Desktop'],
-        docker: ['docker stats --no-stream', 'Docker', 'https://docs.docker.com/desktop/install/mac-install/', 'Please launch Docker Desktop'],
+        // docker: ['docker stats --no-stream', 'Docker', 'https://docs.docker.com/desktop/install/mac-install/', 'Please launch Docker Desktop'],
         brew: ['brew --version', 'Homebrew', 'https://brew.sh/', 'Installing Homebrew..'],
         devspace: ['devspace --version', 'DevSpace', 'https://www.devspace.sh/docs/getting-started/installation?x0=3', 'Installing DevSpace CLI..'],
         kubectl: ['kubectl version --client', 'Kubernetes CLI', 'https://kubernetes.io/docs/tasks/tools/', 'Installing Kubernetes CLI..'],

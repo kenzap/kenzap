@@ -14,6 +14,7 @@ import terminate from "terminate"
 import fs from "fs"
 import yaml from 'js-yaml';
 import * as path from 'path';
+export { getTemplatesPath } from './templates-path.js'
 
 export class DevTools {
 
@@ -402,12 +403,6 @@ export function syncDeployments(data) {
     global.state.dev[id].proc = run_script('cd ' + cache.path + ' && docker login -u ' + global.state.app.registry.user + ' -p ' + global.state.app.registry.pass + ' ' + global.state.app.registry.domain + ' && kubectl apply -f endpoints.yaml --kubeconfig=kubeconfig-' + data.dtc[0] + '.yaml; kubectl get secret letsencrypt-prod -o yaml --kubeconfig=kubeconfig-' + data.dtc[0] + '.yaml > letsencrypt-prod.yaml;', [], cb);
 }
 
-export function getTemplatesPath() {
-    return process.env.NODE_ENV === 'development'
-        ? path.join(__dirname, "..", "templates")
-        : path.join(process.resourcesPath, 'templates');
-}
-
 /**
  * Runs console commmands locally.
  * This function will output the lines from the script and will return the full combined output as well as exit code when it's done (using the callback).
@@ -572,39 +567,41 @@ export function run_ssh_script(command, script, server, callback, verbose = 1, c
 }
 
 export function toggleDepIconState(id) {
-
-    // log(`toggleDepIconState`);
-
-    if (document.querySelector('.app-publish[data-id="' + id + '"]')) document.querySelector('.app-publish[data-id="' + id + '"]').classList.remove('d-none');
-    if (document.querySelector('.app-stop-publish[data-id="' + id + '"]')) document.querySelector('.app-stop-publish[data-id="' + id + '"]').classList.add('d-none');
-    if (document.querySelector('.dev-badge[data-id="' + id + '"]')) document.querySelector('.dev-badge[data-id="' + id + '"]').parentElement.innerHTML = `<div class="badge dev-badge bg-primary fw-light po" data-id="${id}"><div class="d-flex align-items-center">${__html('Published')}</div></div>`;
-    if (document.querySelector('.app-list-publish[data-id="' + id + '"]')) document.querySelector('.app-list-publish[data-id="' + id + '"]').innerHTML = `<div class="badge dev-badge bg-primary fw-light po" data-id="${id}"><div class="d-flex align-items-center">${__html('Published')}</div></div>`;
-
-    if (global.state.pub[id].proc) {
-
-        const pid = global.state.pub[id].proc.pid;
-
-        // log(`toggleDepIconState: Checking process with PID ${pid}...`);
-
+    const state = global.state.pub && global.state.pub[id] || {};
+    const sync = global.state.dev && global.state.dev[id] || {};
+    let running = state.running || state.preparing;
+    if (state.proc && !state.proc.managed) {
         try {
-            // Check if the process exists
-            process.kill(pid, 0);
-
-            // log(`toggleDepIconState: Process with PID ${pid} is running.`);
-
-            if (document.querySelector('.app-publish[data-id="' + id + '"]')) document.querySelector('.app-publish[data-id="' + id + '"]').classList.add('d-none');
-            if (document.querySelector('.app-stop-publish[data-id="' + id + '"]')) document.querySelector('.app-stop-publish[data-id="' + id + '"]').classList.remove('d-none');
-            if (document.querySelector('.dev-badge[data-id="' + id + '"]')) document.querySelector('.dev-badge[data-id="' + id + '"]').parentElement.innerHTML = `<div class="badge dev-badge bg-danger fw-light po" data-id="${id}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ${__html('Publishing')}</div></div>`;
-            if (document.querySelector('.app-list-publish[data-id="' + id + '"]')) document.querySelector('.app-list-publish[data-id="' + id + '"]').innerHTML = `<div class="badge dev-badge bg-danger fw-light po" data-id="${id}"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ${__html('Publishing')}</div></div>`;
-
+            process.kill(state.proc.pid, 0);
+            running = true;
         } catch (error) {
-            if (error.code === 'ESRCH') {
-                log(`toggleDepIconState: Process with PID ${pid} is not running.`);
-            } else {
-                log(`Error checking process with PID ${pid}:`, error);
-            }
+            if (error.code !== 'ESRCH') log(error);
         }
     }
+    const failed = state.publishStatus === 'failed';
+    const canceled = state.publishStatus === 'canceled';
+    const syncing = sync.syncRunning || sync.syncPreparing;
+    const syncVisible = syncing || sync.syncDesired || sync.syncStatus === 'failed';
+    const syncLabel = sync.syncPreparing ? 'Starting sync' : sync.syncStatus === 'paused' ? 'Sync paused'
+        : sync.syncStatus === 'pausing' ? 'Pausing sync' : sync.syncStatus === 'stopping' ? 'Stopping sync'
+        : sync.syncStatus === 'failed' ? 'Sync failed' : 'Syncing';
+    const label = running ? state.publishStatus === 'canceling' ? 'Canceling' : 'Publishing'
+        : syncVisible ? syncLabel : failed ? 'Publish failed' : canceled ? 'Publish canceled' : 'Published';
+    const pending = running || syncing;
+    const danger = running || (syncVisible ? sync.syncStatus === 'failed' : failed);
+    const badge = `<div class="badge dev-badge bg-${danger ? 'danger' : syncVisible || canceled ? 'secondary' : 'primary'} fw-light po" data-id="${attr(id)}"><div class="d-flex align-items-center">${pending ? '<span class="spinner-border spinner-border-sm me-1 mb-0" role="status" aria-hidden="true"></span> ' : ''}${__html(label)}</div></div>`;
+    const publish = document.querySelector('.app-publish[data-id="' + id + '"]');
+    const stop = document.querySelector('.app-stop-publish[data-id="' + id + '"]');
+    if (publish) publish.classList.toggle('d-none', !!running);
+    if (stop) stop.classList.toggle('d-none', !running);
+    const startSync = document.querySelector('.start-dev-app[data-id="' + id + '"]');
+    const stopSync = document.querySelector('.stop-dev-app[data-id="' + id + '"]');
+    if (startSync) startSync.classList.toggle('d-none', !!syncing);
+    if (stopSync) stopSync.classList.toggle('d-none', !(sync.syncDesired || sync.syncRunning));
+    const devBadge = document.querySelector('.dev-badge[data-id="' + id + '"]');
+    if (devBadge && devBadge.parentElement) devBadge.parentElement.innerHTML = badge;
+    const listBadge = document.querySelector('.app-list-publish[data-id="' + id + '"]');
+    if (listBadge) { listBadge.innerHTML = badge; listBadge.title = !running && syncVisible ? sync.syncError || '' : state.error || ''; }
 }
 
 export function normalizeStyle(data) {
