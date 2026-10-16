@@ -30,6 +30,13 @@ export function updatePublishState(update, notify = true) {
         edgePending: update.running || update.status === 'succeeded'
     };
     global.state.loading = Object.values(global.state.pub).some(item => item.running || item.preparing);
+    if (update.status === 'succeeded') {
+        for (const app of [global.state.app, ...(global.state.apps || [])].filter(Boolean)) {
+            if (app.id === update.appId) { app.status = 'published'; app.new = false; }
+        }
+        const tools = document.querySelector('.app-development-tools[data-id="' + update.appId + '"]');
+        if (tools) tools.classList.remove('d-none');
+    }
     toggleDepIconState(update.appId);
     const edge = document.querySelector('.edge-status[data-id="' + update.appId + '"]');
     if (edge && !update.running && update.status !== 'succeeded') edge.classList.remove('pending');

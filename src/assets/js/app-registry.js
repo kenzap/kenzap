@@ -66,6 +66,7 @@ export class AppRegistry {
     get() {
 
         this.registry = {
+            ...this.registry,
             domain: document.querySelector('#appRegistryDomain').value,
             user: document.querySelector('#appRegistryUser').value,
             pass: document.querySelector('#appRegistryPass').value
@@ -75,6 +76,8 @@ export class AppRegistry {
     }
 
     save() {
+
+        this.get();
 
         let settings = getKenzapSettings();
 

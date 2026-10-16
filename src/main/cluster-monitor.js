@@ -124,7 +124,7 @@ class ClusterMonitor {
         if (!request || !validId(request.clusterId) || !OPERATIONS.has(request.operation)) {
             throw new Error('Invalid monitoring request.');
         }
-        const { clusterId, operation, appId, pod } = request;
+        const { clusterId, operation, appId, pod, container, previous, timestamps, podUid } = request;
         const settingsPath = path.join(this.connections.baseDir, '.kenzap', '.config');
         const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')) : {};
         const knownCluster = clusterId === 'local' ? settings.localClusterEnabled !== false
@@ -137,6 +137,11 @@ class ClusterMonitor {
         if (operation === 'logs' && (typeof pod !== 'string' || pod.length > 253 || !/^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/.test(pod))) {
             throw new Error('Invalid pod name.');
         }
+        if (container !== undefined && (operation !== 'logs' || !validNamespace(container))) throw new Error('Invalid log container.');
+        if (previous !== undefined && (operation !== 'logs' || typeof previous !== 'boolean' || (previous && !container))) throw new Error('Select a container for previous logs.');
+        if (timestamps !== undefined && (operation !== 'logs' || typeof timestamps !== 'boolean')) throw new Error('Invalid log timestamps option.');
+        if (podUid !== undefined && (!['logs', 'events'].includes(operation) || typeof podUid !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9-]{0,127}$/.test(podUid))) throw new Error('Invalid pod diagnostic identity.');
+        if (operation === 'events' && pod !== undefined && (typeof pod !== 'string' || pod.length > 253 || !/^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/.test(pod))) throw new Error('Invalid pod name.');
         const transport = clusterId === 'local' ? 'local'
             : this.connections.usesSSHForMonitoring(clusterId) ? 'ssh' : 'direct';
         const connection = this.connections.connections.get(clusterId);
@@ -162,16 +167,18 @@ class ClusterMonitor {
             namespace = appNamespace(app, appDir, context);
             if (!validNamespace(namespace)) throw new Error('The app monitoring namespace is invalid.');
         }
-        return { clusterId, operation, appId, pod, transport, connection, sourcePath, namespace };
+        return { clusterId, operation, appId, pod, container, previous: !!previous, timestamps: !!timestamps, podUid,
+            transport, connection, sourcePath, namespace };
     }
 
     async read(request) {
         if (this.closed) throw new Error('Monitoring is shutting down.');
         const route = this.describe(request);
         const epoch = this.epochs.get(route.clusterId) || 0;
-        const key = JSON.stringify([route.clusterId, route.operation, route.appId, route.pod, route.namespace, epoch]);
+        const key = JSON.stringify([route.clusterId, route.operation, route.appId, route.pod, route.namespace,
+            route.container, route.previous, route.timestamps, route.podUid, epoch]);
         const cached = this.cache.get(key);
-        if (cached && Date.now() - cached.at < this.cacheMs) return cached.value;
+        if (!request.force && cached && Date.now() - cached.at < this.cacheMs) return cached.value;
         if (this.pending.has(key)) return this.pending.get(key);
         const promise = this.query(route, epoch).then(value => {
             if (this.cache.size >= 256) this.cache.delete(this.cache.keys().next().value);
@@ -187,8 +194,17 @@ class ClusterMonitor {
         try {
             const args = route.operation === 'topNodes' ? ['top', 'nodes']
                 : route.operation === 'topPods' ? ['top', 'pods']
-                : route.operation === 'logs' ? ['logs', route.pod, '--tail=200', '--limit-bytes=262144', '--all-containers=true']
-                    : ['get', route.operation, '-o', 'json'];
+                : route.operation === 'logs' ? ['logs', route.pod, '--tail=200', '--limit-bytes=262144',
+                    ...(route.container ? ['--container', route.container] : ['--all-containers=true'])]
+                : ['get', route.operation, '-o', 'json'];
+            if (route.operation === 'logs') {
+                if (route.previous) args.push('--previous=true');
+                if (route.timestamps) args.push('--timestamps=true');
+            }
+            if (route.operation === 'events' && (route.podUid || route.pod)) {
+                const identity = route.podUid ? `involvedObject.uid=${route.podUid}` : `involvedObject.name=${route.pod}`;
+                args.push('--field-selector', `${identity},involvedObject.kind=Pod,type=Warning`);
+            }
             if (route.namespace) args.push('--namespace', route.namespace);
             else if (route.operation === 'deployments') args.push('--all-namespaces');
             if (route.transport === 'local') args.push('--context', 'minikube');

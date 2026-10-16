@@ -469,6 +469,8 @@ export class Endpoints {
 
     createEndpoints() {
 
+        if (this.app.dnsManaged === false || getSetting(this.app.id).dnsManaged === false) return;
+
         let settings = getKenzapSettings();
 
         if (!settings.id) settings.id = getToken(12);

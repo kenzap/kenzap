@@ -1,170 +1,101 @@
-
-import global from "./global.js"
-import { __html, attr, onClick, kenzapdir, getDefaultAppPath, toast, simulateClick, getKenzapSettings } from './helpers.js'
+import global from './global.js'
+import { ipcRenderer } from 'electron'
+import { __html, attr, simulateClick, getKenzapSettings } from './helpers.js'
 import { AppCreateImage } from './app-create-image.js'
 import { AppClusterPicker } from './app-cluster-picker.js'
-import { getAppRegistry } from './app-registry-helpers.js'
-import { provisionClusterApp } from './app-create-helpers.js'
-import { provisionClusterAppLocal } from './app-create-local-helpers.js'
-import fs from "fs"
-import * as path from 'path';
-import { Settings } from '../../../src/renderer/app-settings.js'
-import { log } from "console"
+import { Settings } from '../../renderer/app-settings.js'
 
-/**
- * Class representing an App Create Dialog where user proivdes app name.
- */
 export class AppCreateCluster {
-
     constructor(app) {
-
         this.app = app;
-
         this.settings = getKenzapSettings();
-
-        this.init();
-    }
-
-    init() {
-
         this.view();
-
-        // preload app registry for app deployment
-        if (!this.app.registry) getAppRegistry(this.app, (registry) => {
-
-            this.app.registry = registry;
-        });
     }
 
     view() {
-
-        // get modal html
-        this.modal = document.querySelector(".modal");
-
-        // set wide screen
-        document.querySelector(".modal-dialog").classList.add("modal-lg");
-
-        document.querySelector(".modal-title").innerHTML = __html("Deployment");
-
-        this.modal.querySelector(".modal-body").innerHTML = `
-            <div class="form-group my-5 py-5 text-center-">
-                <div class="m-auto" style="max-width: 500px;">
-                    <label for="app-title d-none" class="form-label h5 d-none">${__html('App Name')}</label>
-                    <console-output-modal class="form-text text-start"></console-output-modal>
-                    <app-cluster-picker></app-cluster-picker>
-                    <div class="invalid-feedback">${__html('Please provide a valid app name.')}</div>
-                </div>
-            </div>
-            `;
-
-        // footer buttons
-        document.querySelector(".modal-footer").innerHTML = `
-            <button id="btn-close" type="button" class="btn btn-outline-dark d-none close-modal" data-bs-dismiss="modal" tabindex="-1">${__html("Close")}</button>
-            <div class="btn-group" role="group" aria-label="Basic example">
-                <button id="btn-middle" type="button" class="btn btn-outline-dark app-picker-back" tabindex="-1">${__html("Back")}</button>
-                <button id="btn-primary" type="button" class="btn btn-outline-primary app-picker-next btn-app-create" tabindex="-1">${__html("Continue")}</button>
-            </div>
-            `;
-
-        // next action listener
-        onClick(".app-picker-next", e => {
-
-            e.preventDefault();
-
-            if (this.loading) return;
-
-            // block ui
-            this.setLoading(true);
-
-            document.querySelector('app-cluster-picker').classList.add('d-none');
-
-            // structure app data
-            this.app.id = this.app.slug;
-            this.app.description = "";
-            this.app.keywords = "";
-            this.app.ui = "";
-            this.app.new = true;
-            this.app.status = "0";
-            this.app.project = global.state.project || "";
-            this.app.path = path.join(kenzapdir, this.app.slug);
-            this.app.clusters = this.appClusterPicker.get();
-
-            log(this.app);
-
-            // return;
-
-            // validate data
-            if (!getDefaultAppPath()) { alert(__html('Application path can not be created.')); return; }
-
-            if (this.app.clusters.length == 0) { alert(__html('Please select cluster.')); return; }
-
-            if (this.app.registry.domain.length == 0) { alert(__html('Can not continue without docker registry.')); return; }
-
-            if (this.app.clusters.length == 0) { alert(__html('Please select your cluster')); return; }
-
-            // create app folder if not exists
-            if (!fs.existsSync(this.app.path)) { fs.mkdirSync(this.app.path); }
-
-            // create app in production cluster
-            if (this.app.clusters[0] != 'local') provisionClusterApp(this.app, (msg, app) => {
-
-                simulateClick(document.querySelector(".close-modal"));
-
-                // Close the modal
-                new Settings(app.id);
-            });
-
-            // create app in local cluster
-            if (this.app.clusters[0] == 'local') provisionClusterAppLocal(this.app, (msg, app) => {
-
-                simulateClick(document.querySelector(".close-modal"));
-
-                // Close the modal
-                new Settings(app.id);
-            });
-        });
-
+        this.modal = document.querySelector('.modal');
+        document.querySelector('.modal-title').textContent = __html('Create app');
+        const registry = { ...(this.app.registry || this.settings.registry || {}) };
+        if (!this.app.registry && registry.mode === 'repository' && registry.domain) {
+            registry.domain = registry.domain.replace(/\/$/, '').split('/').slice(0, -1).concat(this.app.slug).join('/');
+        }
+        this.modal.querySelector('.modal-body').innerHTML = `
+            <div class="app-create-deployment py-2">
+                <p class="form-text">${__html('Creates a new namespace and private app configuration. Publish builds and deploys the application afterward. No DNS records are created.')}</p>
+                <app-cluster-picker></app-cluster-picker>
+                <label for="create-platform" class="form-label mt-3">${__html('Cluster architecture')}</label><select id="create-platform" class="form-select"><option value="linux/amd64" ${this.app.platform !== 'linux/arm64' ? 'selected' : ''}>Linux / AMD64 (x86-64)</option><option value="linux/arm64" ${this.app.platform === 'linux/arm64' ? 'selected' : ''}>Linux / ARM64</option></select><p class="form-text">${__html('Choose the cluster CPU architecture, not this computer.')}</p>
+                <div class="mt-3"><label for="create-image-repository" class="form-label">${__html('Image repository')}</label><input id="create-image-repository" class="form-control" value="${attr(registry.domain || '')}" placeholder="registry.example.com/team/${attr(this.app.slug)}"><p class="form-text">${__html('Required for remote clusters. Optional for Minikube. Use your own registry; no hosted registry is allocated automatically.')}</p></div>
+                <div class="row g-3"><div class="col-sm-6"><label for="create-registry-user" class="form-label">${__html('Registry username')}</label><input id="create-registry-user" class="form-control" autocomplete="username" value="${attr(registry.user || '')}"></div><div class="col-sm-6"><label for="create-registry-pass" class="form-label">${__html('Registry password')}</label><input id="create-registry-pass" class="form-control" type="password" autocomplete="new-password" value="${attr(registry.pass || '')}"></div></div>
+                <p class="form-text">${__html('Leave credentials blank if Docker and the cluster already have registry access. Remote creation requires namespace, RBAC and client-certificate provisioning permissions.')}</p>
+                <p class="app-create-progress form-text" role="status"></p><p class="app-create-error text-danger form-text mb-0" role="alert"></p>
+            </div>`;
+        document.querySelector('.modal-footer').innerHTML = `<button type="button" class="btn btn-outline-dark close-modal d-none" data-bs-dismiss="modal">${__html('Close')}</button><div class="btn-group"><button type="button" class="btn btn-outline-dark app-picker-back">${__html('Back')}</button><button type="button" class="btn btn-outline-primary btn-app-create">${__html('Create app')}</button></div>`;
         this.appClusterPicker = new AppClusterPicker(this.app);
         this.appClusterPicker.init();
-
-        // previous action listener
-        onClick(".app-picker-back", e => {
-
+        const clusterHint = this.modal.querySelector('app-cluster-picker p.form-text');
+        if (clusterHint && this.appClusterPicker.clusters.length) clusterHint.textContent = __html('Choose the cluster for this app.');
+        this.modal.querySelector('.app-picker-back').onclick = () => {
             if (this.loading) return;
-
+            this.readRegistry();
             new AppCreateImage(this.app);
-        });
+        };
+        this.modal.querySelector('.btn-app-create').onclick = () => this.create();
     }
 
-    setLoading(state) {
+    readRegistry() {
+        this.app.platform = this.modal.querySelector('#create-platform').value;
+        this.app.registry = {
+            domain: this.modal.querySelector('#create-image-repository').value.trim(),
+            user: this.modal.querySelector('#create-registry-user').value.trim(),
+            pass: this.modal.querySelector('#create-registry-pass').value
+        };
+    }
 
-        if (state) {
+    setLoading(loading) {
+        this.loading = loading;
+        this.modal.querySelectorAll('input, select, button:not([data-bs-dismiss]), .cluster-picker').forEach(element => {
+            if (element.matches('.cluster-picker')) { element.style.pointerEvents = loading ? 'none' : ''; return; }
+            element.disabled = loading;
+        });
+        this.modal.querySelector('.btn-app-create').textContent = __html(loading ? 'Creating...' : 'Create app');
+        const close = this.modal.querySelector('.modal-header [data-bs-dismiss]');
+        if (close) close.disabled = loading;
+    }
 
-            document.querySelector('.btn-app-create').innerHTML = `
-                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                ${__html('Creating...')}
-            `;
-
-            this.loading = true;
-
-        } else {
-
-            setTimeout(() => {
-
-                if (document.querySelector('.btn-app-create')) document.querySelector('.btn-app-create').innerHTML = `
-                    <span class="d-flex" role="status" aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle me-2" viewBox="0 0 16 16">
-                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
-                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"></path>
-                        </svg>  
-                    </span>
-                    ${__html('Create')}
-                    `;
-            }, 3000);
-
-            this.loading = false;
-
-            hideLoader();
+    async create() {
+        if (this.loading) return;
+        const error = this.modal.querySelector('.app-create-error');
+        error.textContent = '';
+        this.readRegistry();
+        this.app.clusters = this.appClusterPicker.get();
+        if (this.app.clusters.length !== 1) { error.textContent = __html('Select one cluster.'); return; }
+        if (this.app.clusters[0] !== 'local' && !this.app.registry.domain) { error.textContent = __html('Enter an image repository for this remote cluster.'); return; }
+        if (!!this.app.registry.user !== !!this.app.registry.pass) { error.textContent = __html('Provide both registry username and password, or leave both blank.'); return; }
+        const request = { title: this.app.title, namespace: this.app.namespace, image: this.app.image, image_id: this.app.image_id,
+            icon: this.app.icon || '', dockerfiles: this.app.dockerfiles, registry: this.app.registry, variables: this.app.actions ? this.app.actions.variables : {},
+            clusters: this.app.clusters, platform: this.app.platform, project: global.state.project || '' };
+        const progress = (event, update) => {
+            if (update.appId === request.namespace && this.modal.isConnected) this.modal.querySelector('.app-create-progress').textContent = update.message;
+        };
+        const blockDismiss = event => event.preventDefault();
+        this.setLoading(true);
+        this.modal.addEventListener('hide.bs.modal', blockDismiss);
+        ipcRenderer.on('app-create-progress', progress);
+        try {
+            const result = await ipcRenderer.invoke('app-create', request);
+            if (!result || !result.ok) throw new Error(result && result.error || __html('Unable to create the app.'));
+            if (!global.state.dev) global.state.dev = {};
+            global.state.dev[result.value.id] = { status: 'stop', edgeStatus: 'unknown' };
+            this.modal.removeEventListener('hide.bs.modal', blockDismiss);
+            simulateClick(this.modal.querySelector('.close-modal'));
+            new Settings(result.value.id);
+        } catch (failure) {
+            error.textContent = failure.message;
+            this.modal.querySelector('.app-create-progress').textContent = '';
+        } finally {
+            ipcRenderer.removeListener('app-create-progress', progress);
+            this.modal.removeEventListener('hide.bs.modal', blockDismiss);
+            if (this.modal.isConnected) this.setLoading(false);
         }
     }
 }

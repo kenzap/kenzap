@@ -1,8 +1,10 @@
-import { __html, getSetting, loadDependencies, parseError } from './helpers.js'
+import { __html, getSetting, getDefaultAppPath, loadDependencies, parseError } from './helpers.js'
 import fs from "fs"
 import yaml from 'js-yaml';
 import * as path from 'path';
 import { pollClusterState, monitoringLabel } from './cluster-monitor-client.js'
+import { stateCache } from './state-cache.js'
+import { monitoringIdentity } from './monitoring-identity.js'
 
 /**
  * Class representing application statistics.
@@ -144,6 +146,10 @@ export class AppStats {
         if (!this.element || !self.cache.clusters || !self.cache.clusters.length) return;
         if (this.monitor) this.monitor.stop();
         self.getResourceRange();
+        const identity = monitoringIdentity(getDefaultAppPath(), app.id, self.cache.clusters[0]);
+        const chartKey = identity ? JSON.stringify(['chart', identity]) : null;
+        const previous = chartKey && stateCache.peek(chartKey);
+        if (previous) this.chart = JSON.parse(JSON.stringify(previous.value));
         const notice = this.element.querySelector('.monitoring-state');
         this.monitor = pollClusterState(this.element, self.cache.clusters[0], 'topPods', result => {
             const rows = result.data.trim().split('\n').slice(1);
@@ -163,13 +169,18 @@ export class AppStats {
             });
             if (!samples) throw new Error('No pod metrics are available in this namespace yet.');
             notice.textContent = monitoringLabel(result);
-            this.element.classList.remove('monitoring-stale');
+            if (result.stale) this.element.classList.add('monitoring-stale');
+            else this.element.classList.remove('monitoring-stale');
 
-            this.chart.cpu.push([this.chart.index, totalCPU]);
-            this.chart.memory.push([this.chart.index, totalMemory]);
-            this.chart.index += 1;
-            if (this.chart.cpu.length > 20) this.chart.cpu.shift();
-            if (this.chart.memory.length > 20) this.chart.memory.shift();
+            if (!result.observedAt || this.chart.observedAt !== result.observedAt) {
+                this.chart.cpu.push([this.chart.index, totalCPU]);
+                this.chart.memory.push([this.chart.index, totalMemory]);
+                this.chart.index += 1;
+                this.chart.observedAt = result.observedAt;
+                if (this.chart.cpu.length > 20) this.chart.cpu.shift();
+                if (this.chart.memory.length > 20) this.chart.memory.shift();
+                if (chartKey) stateCache.set(chartKey, JSON.parse(JSON.stringify(this.chart)), { appId: app.id, clusterId: self.cache.clusters[0], kind: 'chart' });
+            }
             self.drawCharts(self);
         }, error => {
             notice.textContent = error.message;

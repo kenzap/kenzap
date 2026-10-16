@@ -71,3 +71,16 @@ test('a disabled private endpoint retains public intent without showing an activ
     assert.match(markup, /form-text my-0 d-flex align-items-center d-none/);
     assert.equal(f.endpoints.services[0].active_public, 1);
 });
+
+test('new app Save and Apply never create external DNS records, including after settings reload', async t => {
+    const f = fixture(t);
+    delete f.endpoints.createEndpoints;
+    f.app.dnsManaged = false;
+    f.context.getKenzapSettings = () => { throw new Error('New apps must not contact managed DNS'); };
+    f.context.fetch = () => { throw new Error('No hosted DNS requests allowed'); };
+    await f.endpoints.save();
+    assert.equal(f.requests.length, 1);
+    const reopened = new f.context.Endpoints({ id: f.app.id, clusters: ['remote'] });
+    reopened.createEndpoints();
+    assert.equal(f.store.read().resources.find(resource => resource.kind === 'Ingress').spec.ingressClassName, 'public');
+});

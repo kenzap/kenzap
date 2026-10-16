@@ -68,6 +68,14 @@ class AppPublisher extends ManagedJobs {
                 throw new Error('Publishing prerequisites must be Secrets or PVCs in the app namespace.');
             }
         }
+        const endpointsFile = path.join(directory, 'endpoints.yaml');
+        if (fs.existsSync(endpointsFile)) {
+            const endpoints = yaml.loadAll(fs.readFileSync(endpointsFile, 'utf8')).filter(Boolean);
+            for (const resource of endpoints) {
+                if (!['Service', 'Ingress'].includes(resource.kind) || !resource.metadata || resource.metadata.namespace && resource.metadata.namespace !== route.namespace) throw new Error('App endpoints must be Services or Ingresses in the app namespace.');
+            }
+            resources.push(...endpoints);
+        }
         // Only static credentials need the legacy Docker login step; DevSpace resolves templated values itself.
         const logins = configs.map(config => Object.values(config.pullSecrets || {}).filter(secret => secret
             && [secret.registry, secret.username, secret.password].every(value => typeof value === 'string' && value.length && !value.includes('${')))
@@ -162,7 +170,7 @@ class AppPublisher extends ManagedJobs {
             this.log(job, `Publishing via ${job.route.transport} in namespace ${job.route.namespace}.\n`);
             this.emit(job);
             if (job.resources.length) {
-                this.log(job, 'Applying app Secrets and PVCs.\n');
+                this.log(job, 'Applying app endpoints, Secrets and PVCs.\n');
                 await this.run(job, this.monitor.kubectl(), ['apply', '-f', '-', ...kubectlFlags], env,
                     job.resources.map(resource => yaml.dump(resource)).join('---\n'), 45000);
             }
@@ -180,6 +188,9 @@ class AppPublisher extends ManagedJobs {
                 job.completed++;
             }
             this.check(job);
+            const settingsPath = path.join(this.monitor.connections.baseDir, job.appId, '.kenzap');
+            const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+            fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, status: 'published', new: false }));
             job.status = 'succeeded';
             this.log(job, '\nPublishing completed.\n');
         } catch (error) {

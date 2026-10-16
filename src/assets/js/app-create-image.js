@@ -1,206 +1,75 @@
-
-import global from "./global.js"
-import { __html, attr, onClick, getKenzapSettings } from './helpers.js'
+import { __html, attr, html, onClick, getKenzapSettings } from './helpers.js'
 import { Actions } from './app-actions.js'
 import { AppCreateTitle } from './app-create-title.js'
 import { AppCreateCluster } from './app-create-cluster.js'
-import { getAppRegistry } from './app-registry-helpers.js'
-import { getTemplatesPath } from './dev-tools.js'
-import * as ace from 'ace-builds/src-noconflict/ace';
+import { getTemplatesPath } from './templates-path.js'
+import * as ace from 'ace-builds/src-noconflict/ace'
 import 'ace-builds/webpack-resolver'
 import 'ace-builds/src-noconflict/theme-monokai'
-import 'ace-builds/src-noconflict/mode-javascript'
-import "../scss/app-picker.css"
-import { on } from "events"
-import fs from "fs"
-import * as path from 'path';
+import 'ace-builds/src-noconflict/mode-sh'
+import '../scss/app-picker.css'
+import fs from 'fs'
+import * as path from 'path'
 
-/**
- * Class representing an App Create Dialog where user selects preconfigured docker image templates.
- */
 export class AppCreateImage {
-
     constructor(app) {
-
         this.app = app;
-
-        this.apps = [];
-
-        this.settings = getKenzapSettings();
-
+        this.settings = { ...getKenzapSettings(), endpoint: '127.0.0.1:8080' };
         this.editors = {};
-
-        if (!global.dockerfiles) global.dockerfiles = {};
-
-        console.log(global.dockerfiles);
-
-        this.init();
-
-        // preload app registry for app deployment
-        if (!this.app.registry) getAppRegistry(this.app, (registry) => {
-
-            this.app.registry = registry;
-        });
-    }
-
-    init() {
-
+        this.app.dockerfileDrafts = this.app.dockerfileDrafts || {};
+        this.app.templateActions = this.app.templateActions || {};
         this.view();
     }
 
+    editorId(version, name) { return 'dockerfile-' + this.app.image + '-' + version + '-' + name; }
+
+    destroy() { Object.values(this.editors).forEach(editor => editor.destroy()); }
+
     view() {
-
         this.loadImages();
-
-        // get modal html
-        this.modal = document.querySelector(".modal");
-
-        // set wide screen
-        document.querySelector(".modal-dialog").classList.add("modal-lg");
-
-        document.querySelector(".modal-title").innerHTML = __html("Configurations");
-
-        this.modal.querySelector(".modal-body").innerHTML = this.apps.map((app, i) => {
-
-            return `
-                <div class="col-sm-12 pt-3 mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="card-title">${__html(app.name || 'Docker File')}</h5>
-                        <button type="button" class="btn btn-outline-primary btn-sm select-app-btn" data-i="${attr(i)}" data-id="${attr(app.id)}">${__html('Select')}</button>
-                    </div>
-                    <p class="form-text">${__html('Edit docker file below for ' + (app.name || 'this app') + '.')}</p>
-                    ${app.dockerfiles.map(dockerfile => `
-                        <div class="docker-editor mb-3">
-                            <label for="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" class="form-label d-none">${__html(dockerfile.name)}</label>
-                            <textarea id="dockerfile-${attr(app.id)}-${attr(dockerfile.name)}" data-id="${attr(app.id)}" data-i="${attr(i)}" data-name="${attr(dockerfile.name)}" type="text" autocomplete="off" rows="10" class="form-control monospace">${global.dockerfiles["dockerfile-" + attr(app.id) + "-" + attr(dockerfile.name)] ? global.dockerfiles["dockerfile-" + attr(app.id) + "-" + attr(dockerfile.name)] : attr(dockerfile.content)}</textarea>
-                        </div>
-                    `).join('')}
-                    <div class="clearfix"></div>
-                </div>
-                `;
-        }).join('');
-
-        // footer buttons
-        document.querySelector(".modal-footer").innerHTML = `
-        <div class="${this.app.image == 'custom' ? 'btn-group' : ''}" role="group" aria-label="Basic example">
-            <button id="btn-middle" type="button" class="btn btn-outline-dark close-modal app-title-back" tabindex="-1">${__html("Back")}</button>
-            <button id="btn-primary" type="button" class="btn btn-outline-primary btn-continue ${this.app.image == 'custom' ? '' : 'd-none'}" tabindex="-1">${__html("Continue")}</button>
-        </div>
-        `;
-
-        onClick(".app-title-back", e => {
-
-            new AppCreateTitle(this.app);
-        });
-
-        onClick(".select-app-btn", e => {
-
-            e.preventDefault();
-
-            let i = e.currentTarget.dataset.i;
-
-            let slug = this.app.slug;
-            let image_id = this.apps[i].id;
-
-            this.app = { ...this.app, ...this.apps[i] };
-
-            this.app.slug = slug;
-            this.app.actions = this.actions;
-            this.app.image_id = image_id;
-
-            // update dockerfiles
-            this.app.dockerfiles = this.apps[i].dockerfiles.map(dockerfile => {
-                return { name: dockerfile.name, index: e.currentTarget.dataset.id, content: this.editors["dockerfile-" + e.currentTarget.dataset.id + "-" + dockerfile.name].getValue() };
-            });
-
-            console.log(this.app);
-
+        this.modal = document.querySelector('.modal');
+        document.querySelector('.modal-title').textContent = __html('Configurations');
+        this.modal.querySelector('.modal-body').innerHTML = this.apps.length ? this.apps.map((configuration, index) => `
+            <div class="pt-3 mb-4"><div class="d-flex justify-content-between align-items-center gap-3"><h5 class="card-title mb-0">${html(configuration.name || 'Dockerfile')}</h5><button type="button" class="btn btn-outline-primary btn-sm select-app-btn" data-i="${index}">${__html('Select')}</button></div>
+            <p class="form-text">${__html('Review or edit the Dockerfile before continuing.')}</p>
+            ${configuration.dockerfiles.map(dockerfile => {
+                const id = this.editorId(configuration.id, dockerfile.name);
+                const content = this.app.dockerfileDrafts[id] !== undefined ? this.app.dockerfileDrafts[id] : dockerfile.content;
+                return `<div class="docker-editor mb-3"><label class="form-label small" for="${attr(id)}">${html(dockerfile.name)}</label><textarea id="${attr(id)}" class="form-control monospace" rows="10">${html(content)}</textarea></div>`;
+            }).join('')}</div>`).join('') : `<p class="form-text">${__html('No configurations are available for this template. Choose another template.')}</p>`;
+        document.querySelector('.modal-footer').innerHTML = `<button type="button" class="btn btn-outline-dark app-title-back">${__html('Back')}</button>`;
+        onClick('.app-title-back', () => { this.destroy(); new AppCreateTitle(this.app); });
+        onClick('.select-app-btn', event => {
+            event.preventDefault();
+            const selected = this.apps[Number(event.currentTarget.dataset.i)];
+            this.app.image_id = selected.id;
+            this.app.actions = selected.processor;
+            this.app.dockerfiles = selected.dockerfiles.map(file => ({ name: file.name, content: this.editors[this.editorId(selected.id, file.name)].getValue() }));
+            this.destroy();
             new AppCreateCluster(this.app);
         });
-
-        onClick(".btn-continue", e => {
-
-            e.preventDefault();
-
-            this.app.actions = this.actions;
-
-            new AppCreateCluster(this.app);
+        this.modal.querySelectorAll('textarea').forEach(textarea => {
+            const content = textarea.value;
+            const editor = ace.edit(textarea, { maxLines: 20, minLines: 8, fontSize: 13, theme: 'ace/theme/monokai', mode: 'ace/mode/sh', tabSize: 4 });
+            editor.setValue(content, -1);
+            editor.getSession().on('change', () => { this.app.dockerfileDrafts[textarea.id] = editor.getValue(); });
+            this.editors[textarea.id] = editor;
         });
-
-        this.renderDockerfile();
     }
 
     loadImages() {
-
-        let self = this;
-
-        if (!this.app.image) { this.loadEmptyImage(); return; }
-
-        const appsPath = path.join(getTemplatesPath(), "apps", this.app.image);
-
-        console.log(appsPath);
-
-        const folders = fs.readdirSync(appsPath).filter(folder => {
-            const folderPath = path.join(appsPath, folder);
-            return fs.statSync(folderPath).isDirectory();
-        });
-
-        this.apps = folders.map(folder => {
-
-            const manifestPath = path.join(appsPath, folder, 'manifest.json');
-            const dockerfiles = fs.readdirSync(path.join(appsPath, folder)).filter(file => file.toLowerCase().startsWith('dockerfile'));
-
-            let obj = { id: folder, dockerfiles: [] };
-
-            if (fs.existsSync(manifestPath)) {
-                try {
-                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-
-                    this.actions = new Actions(manifest.actions, self.settings, self.app.title, self.app.namespace);
-
-                    obj = { ...obj, ...manifest };
-                } catch (error) {
-                    console.error(`Error reading manifest.json in folder ${folder}:`, error);
-                }
-            }
-
-            if (dockerfiles.length > 0) {
-                obj.dockerfiles = dockerfiles.map(dockerfile => {
-                    const dockerfilePath = path.join(appsPath, folder, dockerfile);
-                    return { name: dockerfile, content: this.actions.apply("firstView", fs.readFileSync(dockerfilePath, 'utf8')) };
-                });
-            }
-
-            return obj;
-
-        }).filter(app => app !== null);
-    }
-
-    loadEmptyImage() {
-
-
-    }
-
-    renderDockerfile() {
-
-        const textareas = this.modal.querySelectorAll("textarea[id^='dockerfile-']");
-        textareas.forEach(textarea => {
-            this.editors[textarea.id] = ace.edit(textarea, {
-                maxLines: 20,
-                minLines: 10,
-                fontSize: 14,
-                theme: 'ace/theme/monokai',
-                mode: 'ace/mode/sh',
-                tabSize: 4
-            });
-
-            this.editors[textarea.id].setValue(textarea.innerHTML);
-            this.editors[textarea.id].clearSelection();
-
-            this.editors[textarea.id].getSession().on('change', () => {
-                console.log("Editor changed: " + textarea.id);
-                global.dockerfiles[textarea.id] = this.editors[textarea.id].getValue();
-            });
-        });
+        const root = path.join(getTemplatesPath(), 'apps', this.app.image || 'custom');
+        this.apps = fs.existsSync(root) ? fs.readdirSync(root).filter(name => /^\d+$/.test(name) && fs.statSync(path.join(root, name)).isDirectory()).sort((a, b) => Number(a) - Number(b)).map(id => {
+            const directory = path.join(root, id), manifestFile = path.join(directory, 'manifest.json');
+            const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : {};
+            const key = this.app.image + ':' + id;
+            const processor = this.app.templateActions[key] || new Actions(manifest.actions, this.settings, this.app.title, this.app.namespace);
+            processor.namespace = this.app.namespace;
+            if (['wordpress', 'myticket-wp'].includes(this.app.image)) processor.variables.wordpress_db_host = 'db';
+            this.app.templateActions[key] = processor;
+            return { ...manifest, id, processor, dockerfiles: fs.readdirSync(directory).filter(name => /^Dockerfile/.test(name)).sort().map(name => ({
+                name, content: processor.apply('firstView', fs.readFileSync(path.join(directory, name), 'utf8'))
+            })) };
+        }).filter(configuration => configuration.dockerfiles.length) : [];
     }
 }

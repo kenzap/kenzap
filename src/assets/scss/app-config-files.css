@@ -1,0 +1,40 @@
+.config-files-section { --config-border: #dfe3e8; }
+.config-files-heading, .config-files-target, .config-file-heading, .config-file-actions, .config-file-footer { display: flex; align-items: center; gap: 16px; }
+.config-files-heading, .config-file-heading { justify-content: space-between; }
+.config-files-section .btn-link, .config-files-note, .config-files-scope, .config-files-error, .config-files-empty, .config-file-resources, .config-file-history, .config-file-message { font-size: 12px; }
+.config-files-section .btn-link { text-decoration: none; }
+.config-files-section .btn-link:hover { text-decoration: underline; }
+.config-files-target { flex-wrap: wrap; gap: 8px 12px; }
+.config-files-target label, .config-files-transport { font-size: 12px; }
+.config-files-target select { width: auto; max-width: 100%; min-width: 150px; font-size: 12px; }
+.config-files-scope, .config-files-error, .config-file-message, .config-files-note { overflow-wrap: anywhere; line-height: 1.6; }
+.config-files-error:empty { display: none; }
+.config-files-list:not(:empty) { border-top: 1px solid var(--config-border); }
+.config-file-row { padding: 16px 0; border-bottom: 1px solid var(--config-border); }
+.config-file-heading { align-items: flex-start; }
+.config-file-description { min-width: 0; overflow-wrap: anywhere; }
+.config-file-name { font: 13px/1.6 Monaco, Menlo, Consolas, monospace; }
+.config-file-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.config-file-status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 4px; background: #edf0f2; color: #68737d; font-size: 11px; line-height: 1.5; white-space: nowrap; }
+.config-file-status > span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.config-file-status[data-stale="true"] { white-space: normal; }
+.config-file-status[data-stale="true"] > span { flex-shrink: 0; }
+.config-file-status[data-tone="healthy"] { color: #247c55; background: #e8f3ed; }
+.config-file-status[data-tone="warning"] { color: #91631e; background: #f8efdd; }
+.config-file-status[data-tone="danger"] { color: #b02a37; background: #fae9eb; }
+.config-file-status[data-tone="info"] { color: #43647e; background: #e8eff5; }
+.config-file-actions { flex-shrink: 0; gap: 14px; }
+.config-file-actions .btn-sm { font-size: 12px; padding: 3px 12px; }
+.config-file-footer { align-items: flex-start; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-top: 10px; }
+.config-file-more { text-align: right; font-size: 12px; }
+.config-file-more summary, .config-file-output summary { color: #6c757d; cursor: pointer; }
+.config-file-more > div { display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: flex-end; padding-top: 10px; }
+.config-file-output { font-size: 12px; }
+.config-file-output pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #fff; border: 1px solid var(--config-border); border-radius: 4px; padding: 10px; margin: 8px 0 0; max-height: 200px; overflow: auto; font: 11px/1.65 Monaco, Menlo, Consolas, monospace; }
+@media (max-width: 575px) {
+  .config-file-heading { flex-wrap: wrap; gap: 10px; }
+  .config-file-actions { margin-left: auto; }
+  .config-file-footer { display: block; }
+  .config-file-more { text-align: left; margin-top: 8px; }
+  .config-file-more > div { justify-content: flex-start; }
+}

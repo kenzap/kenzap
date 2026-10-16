@@ -67,7 +67,7 @@ export class AppStatus {
                     if (global.state.page === 'app-settings' && warnings) warnings.innerHTML = '';
                 } else if (global.state.page === 'app-settings' && status !== 'unknown') {
                     this.showAlert(app);
-                    this.getLogs(app, cache, element, deployments);
+                    if (!result.cached || (!state.edgeLogs && !state.edgeEvent)) this.getLogs(app, cache, element, deployments);
                 }
             }, error => {
                 this.generations.set(app.id, (this.generations.get(app.id) || 0) + 1);

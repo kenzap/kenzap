@@ -68,6 +68,7 @@ class ManagedJobs {
                     const safe = this.scrub(job, text);
                     tail = (tail + safe + '\n').slice(-2048);
                     this.log(job, safe + '\n');
+                    if (job.onLine) job.onLine(safe);
                 };
                 const write = text => {
                     const parts = (pending + text).split(/[\r\n]/);

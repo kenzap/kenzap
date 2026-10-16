@@ -10,6 +10,8 @@ body{
   transition: 0.24s;
 }
 
+.local-access-indicator { color: #1941df; font-size: 12px; }
+
 .p-edit{
   margin-top: 80px;
 }

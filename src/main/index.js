@@ -4,7 +4,7 @@ import * as path from 'path'
 import { format as formatUrl } from 'url'
 import global from '../assets/js/global.js'
 import { mainMenu } from '../assets/js/menu.js'
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron'
 import { getTemplatesPath } from '../assets/js/templates-path.js'
 import { execSync } from 'child_process';
 import os from 'os';
@@ -15,6 +15,9 @@ import { EndpointDeployer } from './endpoint-deployer.js';
 import { PodConsole } from './pod-console.js';
 import { AppPublisher } from './app-publisher.js';
 import { AppSync } from './app-sync.js';
+import { LocalAccess, availablePort } from './local-access.js';
+import { AppCreator } from './app-creator.js';
+import { AppConfigFiles } from './app-config-files.js';
 
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
@@ -27,6 +30,18 @@ let endpointDeployer
 let podConsole
 let appPublisher
 let appSync
+let localAccess
+let appCreator
+let appConfigFiles
+
+function invalidateAppState(appId, clusterId) {
+  if (!clusterId) {
+    try { clusterId = JSON.parse(fs.readFileSync(path.join(clusterConnections.baseDir, appId, '.kenzap'), 'utf8')).clusters[0]; }
+    catch (_) {}
+  }
+  if (clusterId) clusterMonitor.invalidate(clusterId);
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app-state-invalidated', { appId, clusterId });
+}
 
 function registerClusterConnectionHandlers() {
   clusterConnections = new ClusterConnections({
@@ -47,19 +62,59 @@ function registerClusterConnectionHandlers() {
       if (podConsole) podConsole.invalidate(status.id);
       if (appPublisher) appPublisher.invalidate(status.id);
       if (appSync) appSync.connectionChanged(status);
+      if (localAccess) localAccess.connectionChanged(status);
+      if (appCreator) appCreator.invalidate(status.id);
+      if (appConfigFiles) appConfigFiles.invalidate(status.id);
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cluster-connection-status', status);
     }
   });
   clusterMonitor = new ClusterMonitor({ connections: clusterConnections });
   endpointDeployer = new EndpointDeployer({ monitor: clusterMonitor });
   podConsole = new PodConsole({ monitor: clusterMonitor });
+  const publishing = new Map();
   appPublisher = new AppPublisher({ monitor: clusterMonitor, onUpdate: update => {
+    const previous = publishing.get(update.appId);
+    if (!previous || previous.jobId !== update.jobId || previous.running !== update.running) {
+      publishing.set(update.appId, { jobId: update.jobId, running: update.running });
+      invalidateAppState(update.appId);
+    }
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app-publish-update', update);
   } });
   appSync = new AppSync({ monitor: clusterMonitor,
-    canStart: appId => !appPublisher.list().some(job => job.appId === appId && job.running),
+    canStart: appId => !appPublisher.list().some(job => job.appId === appId && job.running) && !(appConfigFiles && appConfigFiles.pending.has(appId)),
     onUpdate: update => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app-sync-update', update);
+    }
+  });
+  localAccess = new LocalAccess({ monitor: clusterMonitor, onUpdate: update => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('local-access-update', update);
+  } });
+  appCreator = new AppCreator({ monitor: clusterMonitor,
+    templatesDir: getTemplatesPath(),
+    onUpdate: update => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('app-create-progress', update);
+    }
+  });
+  appConfigFiles = new AppConfigFiles({ monitor: clusterMonitor, openFile: file => shell.openPath(file), trashFile: file => shell.trashItem(file),
+    canMutate: appId => !appSync.isBusy(appId) && !appPublisher.list().some(job => job.appId === appId && job.running),
+    confirm: async details => {
+      const trash = details.action === 'trash', remove = details.action === 'remove';
+      const label = trash ? 'Move to Trash' : remove ? 'Remove from cluster' : 'Apply';
+      const targets = details.resources.slice(0, 20).map(resource => `${resource.kind} / ${resource.metadata.name}`).join('\n');
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: trash || remove ? 'warning' : 'question', title: label + ' configuration',
+        message: `${label}: ${details.file}?`,
+        detail: trash ? 'Only the local file will be moved to Trash. Running cluster resources are not removed. Publish may fail if it references this file.'
+          : `Cluster: ${details.clusterId}\nNamespace: ${details.namespace}\n\n${targets}${details.resources.length > 20 ? '\n...' : ''}\n\n`
+            + (remove ? 'The listed resources and their dependents may be removed. This can stop workloads or delete stored data. The local file is kept. A later Publish or Apply can recreate resources, but not recover deleted data.' : 'The saved file will be applied using this app\'s credentials. Existing resources may be updated. Changes are not automatically rolled back.'),
+        buttons: ['Cancel', label], defaultId: 0, cancelId: 0
+      });
+      return result.response === 1;
+    },
+    onChanged: ({ appId, clusterId }) => {
+      invalidateAppState(appId, clusterId);
+      localAccess.reconcile(appId);
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('local-access-catalog-changed', { appId });
     }
   });
 
@@ -73,9 +128,17 @@ function registerClusterConnectionHandlers() {
   };
   handle('cluster-connection-list', () => clusterConnections.list(true));
   handle('cluster-monitor-read', request => clusterMonitor.read(request));
-  handle('app-endpoints-deploy', request => endpointDeployer.deploy(request && request.appId));
+  handle('app-endpoints-deploy', async request => {
+    if (request && appConfigFiles.pending.has(request.appId)) throw new Error('Wait for the configuration action to finish before saving endpoints.');
+    const result = await endpointDeployer.deploy(request && request.appId);
+    invalidateAppState(request.appId);
+    localAccess.reconcile(request.appId);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('local-access-catalog-changed', { appId: request.appId });
+    return result;
+  });
   handle('app-pod-console-open', request => podConsole.open(request));
   handle('app-publish-start', request => {
+    if (request && appConfigFiles.pending.has(request.appId)) throw new Error('Wait for the configuration action to finish before publishing.');
     if (request && appSync.isBusy(request.appId)) throw new Error('Stop live sync before publishing this app.');
     return appPublisher.start(request);
   });
@@ -84,6 +147,20 @@ function registerClusterConnectionHandlers() {
   handle('app-sync-start', request => appSync.start(request));
   handle('app-sync-stop', request => appSync.stop(request));
   handle('app-sync-list', () => appSync.list());
+  handle('local-access-describe', request => localAccess.describe(request && request.appId));
+  handle('local-access-list', () => localAccess.list());
+  handle('local-access-start', request => localAccess.start(request));
+  handle('local-access-stop', request => localAccess.stop(request));
+  handle('local-access-configure', request => localAccess.configure(request));
+  handle('local-access-suggest-port', () => availablePort());
+  handle('local-access-open', request => shell.openExternal(localAccess.open(request)));
+  handle('app-create', request => appCreator.create(request));
+  handle('app-config-files-list', request => appConfigFiles.list(request));
+  handle('app-config-files-status', request => appConfigFiles.statuses(request));
+  handle('app-config-files-edit', request => appConfigFiles.edit(request));
+  handle('app-config-files-apply', request => appConfigFiles.mutate(request, 'apply'));
+  handle('app-config-files-remove', request => appConfigFiles.mutate(request, 'remove'));
+  handle('app-config-files-trash', request => appConfigFiles.mutate(request, 'trash'));
   handle('cluster-connection-connect', id => clusterConnections.connect(id));
   handle('cluster-connection-disconnect', id => clusterConnections.disconnect(id));
   handle('cluster-connection-export', async id => {
@@ -346,6 +423,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  if (appConfigFiles) appConfigFiles.close();
+  if (appCreator) appCreator.close();
+  if (localAccess) localAccess.close();
   if (appSync) appSync.close();
   if (appPublisher) appPublisher.close();
   if (podConsole) podConsole.close();

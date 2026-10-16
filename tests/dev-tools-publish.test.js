@@ -171,3 +171,15 @@ test('old publishing logs cannot overwrite the current sync console', () => {
     f.context.updatePublishState(snapshot({ log: 'Old build' }), false);
     assert.equal(f.output.textContent, 'Live sync');
 });
+
+test('the first successful Publish enables a new app development tools without requiring navigation', () => {
+    const f = fixture();
+    f.state.app.status = 'unpublished'; f.state.app.new = true;
+    f.state.apps = [{ id: 'office', status: 'unpublished' }, { id: 'other', status: 'unpublished' }];
+    const removed = [];
+    f.menu.classList.remove = value => removed.push(value);
+    f.context.updatePublishState(snapshot({ status: 'succeeded', running: false }));
+    assert.equal(f.state.app.status, 'published'); assert.equal(f.state.app.new, false);
+    assert.equal(f.state.apps[0].status, 'published'); assert.equal(f.state.apps[1].status, 'unpublished');
+    assert.ok(removed.includes('d-none'));
+});

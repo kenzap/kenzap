@@ -1,6 +1,6 @@
 
 import global from "./global.js"
-import { __html, attr, onClick, simulateClick, log } from './helpers.js'
+import { __html, attr, onClick } from './helpers.js'
 import { AppCreateTemplate } from './app-create-template.js'
 import { AppCreateImage } from './app-create-image.js'
 import slugify from 'slugify'
@@ -13,8 +13,6 @@ export class AppCreateTitle {
     constructor(app) {
 
         this.app = app;
-
-        log(this.app);
 
         this.init();
     }
@@ -38,7 +36,7 @@ export class AppCreateTitle {
             <div class="form-group my-5 py-5 text-center-">
                 <div class="m-auto" style="max-width: 500px;">
                     <label for="app-title" class="form-label h5 d-none">${__html('App Name')}</label>
-                    <input id="app-title" type="text" class="form-control form-control-lg mx-auto" placeholder="${__html('Enter app name')}" value="${attr(this.app.title ? this.app.title : this.app.name)}" />
+                    <input id="app-title" type="text" class="form-control form-control-lg mx-auto" placeholder="${__html('Enter app name')}" value="${attr(this.app.title || this.app.name || '')}" />
                     <div class="invalid-feedback">${__html('Please provide a valid app name.')}</div>
                 </div>
             </div>
@@ -57,18 +55,18 @@ export class AppCreateTitle {
         // next action listener
         onClick(".app-picker-next", e => {
 
-            this.app.title = document.querySelector("#app-title").value;
+            this.app.title = document.querySelector("#app-title").value.trim();
             this.app.namespace = slugify(this.app.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g });
             this.app.slug = slugify(this.app.title.toLowerCase(), { remove: /[.,/#!$%^&*;:{}=\_`~()]/g });
 
-            if (this.app.title.length < 2 || this.app.namespace < 2) {
+            if (this.app.title.length < 2 || this.app.title.length > 100 || !/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(this.app.namespace) || this.app.namespace.length > 63 || /^(?:default|kube-.+|local)$/.test(this.app.namespace)) {
                 document.querySelector("#app-title").classList.add("is-invalid");
                 return;
             }
 
-            if (!/^[a-zA-Z0-9\s]+$/.test(this.app.title)) {
+            if (!/^[a-zA-Z0-9\s-]+$/.test(this.app.title)) {
                 document.querySelector("#app-title").classList.add("is-invalid");
-                document.querySelector("#app-title").nextElementSibling.innerHTML = __html('Only letters, digits, and spaces are allowed.');
+                document.querySelector("#app-title").nextElementSibling.textContent = __html('Use letters, digits, spaces, or hyphens.');
                 return;
             }
 

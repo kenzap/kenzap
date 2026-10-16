@@ -7,6 +7,9 @@ import slugify from 'slugify';
 import { AppClusterPicker } from '../assets/js/app-cluster-picker.js';
 import { DockerFile } from '../assets/js/app-docker-file.js';
 import { Endpoints } from '../assets/js/app-endpoints.js';
+import { LocalAccessPanel } from '../assets/js/app-local-access.js';
+import { PodsPanel } from '../assets/js/app-pods.js';
+import { ConfigFilesPanel } from '../assets/js/app-config-files.js';
 import { Footer } from '../assets/js/app-footer.js';
 import { getAppIcon, getAppList } from '../assets/js/app-list-helpers.js';
 import { AppRegistry } from '../assets/js/app-registry.js';
@@ -78,10 +81,16 @@ export class Settings {
         // edge clusters
         this.appStats = new AppStats(global);
         this.appStats.init();
+        this.appPods = new PodsPanel(this.app);
+        this.appPods.init();
+        this.configFiles = new ConfigFilesPanel(this.app);
+        this.configFiles.init();
 
         // docker file
         this.endpoints = new Endpoints(this.app);
         this.endpoints.init();
+        this.localAccess = new LocalAccessPanel(this.app);
+        this.localAccess.init();
 
         // docker file
         this.dockerFile = new DockerFile(global);
@@ -198,6 +207,7 @@ export class Settings {
                                                     </div>
                                                     <p class="form-text mt-0 mb-0">${__html('This app operates in <a href="#">%1$</a> namespace.', this.app.slug)}</p>
                                                     <p class="form-text app-monitoring-state mt-0 mb-0" data-id="${attr(this.app.id)}" role="status"></p>
+                                                    <p class="local-access-indicator form-text mt-0 mb-0 d-none" data-app-id="${attr(this.app.id)}" role="status"></p>
                                                 </div>
                                             </div>
                                         </div>
@@ -249,7 +259,10 @@ export class Settings {
                                         </div>
                                     </div>
                                     <app-stats></app-stats>
+                                    <app-pods></app-pods>
+                                    <app-config-files></app-config-files>
                                     <app-endpoints></app-endpoints>
+                                    <app-local-access></app-local-access>
                                     <app-cluster-picker></app-cluster-picker>
                                     <app-registry></app-registry>
                                     <docker-file></docker-file>
@@ -372,6 +385,8 @@ export class Settings {
     }
 
     destroy() {
+
+        if (this.configFiles) this.configFiles.destroy();
 
         this.appStats.destroy();
 

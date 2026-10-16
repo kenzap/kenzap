@@ -1,0 +1,37 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { monitoringIdentity } = require('../src/assets/js/monitoring-identity');
+
+test('snapshot identity follows app routes and credentials, not incidental metadata updates', t => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kenzap-cache-identity-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(directory, '.kenzap'));
+    fs.mkdirSync(path.join(directory, 'office'));
+    const settings = { clusters: [{ id: 'prod', sshHost: 'server-a' }] };
+    const app = { id: 'office', namespace: 'office-prod', clusters: ['prod'] };
+    const appFile = path.join(directory, 'office', '.kenzap');
+    const clusterFile = path.join(directory, '.kenzap', '.config');
+    fs.writeFileSync(clusterFile, JSON.stringify(settings));
+    fs.writeFileSync(appFile, JSON.stringify(app));
+    const key = () => monitoringIdentity(directory, 'office', 'prod');
+    const original = key();
+    assert.ok(original);
+    fs.writeFileSync(appFile, JSON.stringify({ ...app, tags: ['latest'], status: 'published' }));
+    assert.equal(key(), original);
+    fs.writeFileSync(appFile, JSON.stringify({ ...app, namespace: 'office-stage' }));
+    assert.notEqual(key(), original);
+    fs.writeFileSync(appFile, JSON.stringify(app));
+    fs.writeFileSync(path.join(directory, 'office', 'kubeconfig-prod.yaml'), 'app credential changed');
+    const credentialKey = key();
+    assert.notEqual(credentialKey, original);
+    fs.writeFileSync(path.join(directory, 'office', 'kubeconfig-prod.yaml'), 'new app credential with another namespace');
+    assert.notEqual(key(), credentialKey);
+    const beforeClusterChange = key();
+    fs.writeFileSync(clusterFile, JSON.stringify({ clusters: [{ id: 'prod', sshHost: 'server-b' }] }));
+    assert.notEqual(key(), beforeClusterChange);
+    fs.writeFileSync(appFile, 'invalid json');
+    assert.equal(key(), null);
+});

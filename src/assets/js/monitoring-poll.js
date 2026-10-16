@@ -1,4 +1,4 @@
-function createMonitoringPoll({ element, request, onData, onError, subscribe, interval = 10000 }) {
+function createMonitoringPoll({ element, request, onData, onError, subscribe, interval = 10000, snapshot = null, initialDelay = 0 }) {
     let stopped = false;
     let busy = false;
     let refreshPending = false;
@@ -41,7 +41,12 @@ function createMonitoringPoll({ element, request, onData, onError, subscribe, in
     });
     const observer = new MutationObserver(() => { if (!element.isConnected) stop(); });
     observer.observe(document.body, { childList: true });
-    refresh();
+    let restored = true;
+    if (snapshot) {
+        try { onData(snapshot); } catch (error) { restored = false; onError(error); }
+    }
+    if (initialDelay > 0 && restored) timer = setTimeout(refresh, initialDelay);
+    else refresh();
     return { stop, refresh };
 }
 

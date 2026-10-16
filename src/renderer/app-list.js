@@ -212,10 +212,11 @@ export class AppList {
                                                                         </svg>
                                                                     </span>
                                                                     <div class="form-text app-monitoring-state p-0 m-0" data-id="${attr(app.id)}" style="font-size:12px;" role="status"></div>
+                                                                    <div class="local-access-indicator form-text p-0 m-0 d-none" data-app-id="${attr(app.id)}" role="status"></div>
                                                                     <div class="form-text p-0 m-0" style="font-size:12px;">${getFirstEndpoint(app)} <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" data-record="${getFirstEndpoint(app)}" class="bi bi-copy po mb-1 ms-1 copy-record ${attr(getFirstEndpoint(app) ? "" : "d-none")}" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg></div>
                                                                 </td>
                                                                 <td>
-                                                                    <div class="${app.status == "unpublished" ? "d-none" : ""} d-flex align-items-center">
+                                                                    <div class="app-development-tools ${app.status == "unpublished" ? "d-none" : ""} d-flex align-items-center" data-id="${attr(app.id)}">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="currentColor" title="${__html("Stop development mode")}" class="bi bi-stop-circle text-danger m-0 po stop-dev-app ${global.state.dev[app.id].status == "sync" ? "" : "d-none"}" viewBox="0 0 16 16" data-id="${attr(app.id)}">
                                                                             <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                                                             <path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h3A1.5 1.5 0 0 1 11 6.5v3A1.5 1.5 0 0 1 9.5 11h-3A1.5 1.5 0 0 1 5 9.5v-3z"/>

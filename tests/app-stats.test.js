@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { StateCache } = require('../src/assets/js/state-cache');
 
 function fixture() {
     const notice = { textContent: '' };
@@ -16,6 +17,7 @@ function fixture() {
     const context = vm.createContext({
         document: { querySelector: () => element },
         getSetting: () => ({ clusters: ['remote'] }),
+        getDefaultAppPath: () => '/fixture', monitoringIdentity: () => 'office-workspace', stateCache: new StateCache(),
         monitoringLabel: () => 'Monitoring via SSH',
         pollClusterState: (...args) => {
             const poll = { args, stopped: false, stop() { this.stopped = true; } };
@@ -26,11 +28,14 @@ function fixture() {
     const source = fs.readFileSync(path.join(__dirname, '../src/assets/js/app-stats.js'), 'utf8')
         .replace(/^import .*$/gm, '').replace('export class AppStats', 'class AppStats');
     vm.runInContext(`${source}\nthis.AppStats = AppStats;`, context);
-    const stats = new context.AppStats({ state: { app: { id: 'admin' } } });
-    stats.getResourceRange = () => {};
-    stats.drawCharts = () => {};
-    stats.refreshCharts();
-    return { stats, polls, notice, classes };
+    const create = () => {
+        const stats = new context.AppStats({ state: { app: { id: 'admin' } } });
+        stats.getResourceRange = () => {};
+        stats.drawCharts = () => {};
+        stats.refreshCharts();
+        return stats;
+    };
+    return { stats: create(), create, polls, notice, classes };
 }
 
 test('app charts use the shared app-scoped monitoring route and sum pod usage once', () => {
@@ -65,4 +70,17 @@ test('empty metrics do not add a fake healthy zero sample and obsolete polls are
     assert.ok(f.polls[0].stopped);
     f.stats.destroy();
     assert.ok(f.polls[1].stopped);
+});
+
+test('navigation preserves usage history without duplicating the cached sample', () => {
+    const f = fixture();
+    const result = { transport: 'ssh', observedAt: 1000, data: 'NAME CPU MEMORY\nadmin-1 100m 256Mi' };
+    f.polls[0].args[3](result);
+    f.polls[0].args[3]({ ...result, observedAt: 2000 });
+    const previous = JSON.stringify(f.stats.chart);
+    f.stats.destroy();
+    const next = f.create();
+    assert.equal(JSON.stringify(next.chart), previous);
+    f.polls[1].args[3]({ ...result, observedAt: 2000, cached: true });
+    assert.equal(JSON.stringify(next.chart), previous);
 });

@@ -1,9 +1,9 @@
-export class Actions {
+const crypto = require('crypto');
+
+class Actions {
 
     // init class
     constructor(actions, settings, title, namespace) {
-
-        console.log("Actions namespace", namespace);
 
         this.actions = actions;
         this.settings = settings;
@@ -81,11 +81,8 @@ export class Actions {
     genToken(variable, length) {
 
         if (!this.variables[variable]) {
-            let token = Array.from({ length }, () => Math.random().toString(36).charAt(2)).join('');
-            while (!/^[a-zA-Z]/.test(token)) {
-                token = Array.from({ length }, () => Math.random().toString(36).charAt(2)).join('');
-            }
-            this.variables[variable] = token;
+            const size = Math.max(1, Math.min(128, Number(length) || 24));
+            this.variables[variable] = 'k' + crypto.randomBytes(size).toString('hex').slice(0, size - 1);
         }
     }
 
@@ -93,7 +90,7 @@ export class Actions {
 
         // console.log("replaceValue", from, this.variables[to]);
 
-        return content.replace(new RegExp(from, 'g'), this.variables[to]);
+        return content.replace(new RegExp(from, 'g'), () => this.variables[to] || '');
     }
 
     setNamespace(namespace, content) {
@@ -105,19 +102,17 @@ export class Actions {
 
     setEndpoint(slug, content) {
 
-        let endpoint = `${this.namespace}.endpoint-${this.settings.id.toLowerCase()}.kenzap.cloud`;
-
-        console.log("endpoint", endpoint);
+        let endpoint = this.settings.endpoint || `${this.namespace}.endpoint-${this.settings.id.toLowerCase()}.kenzap.cloud`;
 
         return content.replace(new RegExp(slug, 'g'), endpoint);
     }
 
     setEndpointHttps(slug, content) {
 
-        let endpoint = `https://${this.namespace}.endpoint-${this.settings.id.toLowerCase()}.kenzap.cloud`;
-
-        console.log("endpoint", endpoint);
+        let endpoint = this.settings.endpoint ? `http://${this.settings.endpoint}` : `https://${this.namespace}.endpoint-${this.settings.id.toLowerCase()}.kenzap.cloud`;
 
         return content.replace(new RegExp(slug, 'g'), endpoint);
     }
 }
+
+module.exports = { Actions };

@@ -3,7 +3,8 @@ import fs from "fs";
 import yaml from 'js-yaml';
 import * as path from 'path';
 import global from "./global.js";
-import { __html, API, getKenzapSettings, getSetting, getToken, hideLoader, parseError } from './helpers.js';
+import { __html, API, getKenzapSettings, getSetting, getToken, hideLoader, parseError, cacheSettings } from './helpers.js';
+import { imageRepository, registryHost } from './image-repository.js';
 
 /**
  * Fetches the application registry from the Kenzap API and processes the response.
@@ -34,6 +35,7 @@ export function getAppRegistry(app, cb) {
 export function getCurrentRegistry(app, settings) {
 
     let cache = getSetting(app.id);
+    if (cache.registry && cache.registry.mode === 'repository') return cache.registry;
 
     // read devspace
     if (cache.path) if (fs.existsSync(path.join(cache.path, 'devspace.yaml'))) {
@@ -110,7 +112,49 @@ export function getFreeRegistry(app, settings, cb) {
         });
 }
 
+export function updateRepositoryRegistry(app, registry) {
+    const cache = getSetting(app.id), directory = cache.path;
+    registry.mode = 'repository';
+    registry.domain = imageRepository(registry.domain, app.slug, app.clusters[0] === 'local');
+    const previous = app.registry || cache.registry || {};
+    const repositories = { ...(app.imageRepositories || cache.imageRepositories || {}) };
+    for (const [file, old] of Object.entries(repositories)) {
+        if (file !== path.basename(file) || !/^devspace.*\.yaml$/.test(file)) throw new Error('Invalid app image configuration.');
+        const target = path.join(directory, file);
+        if (!fs.existsSync(target)) continue;
+        const config = yaml.load(fs.readFileSync(target, 'utf8'));
+        const repository = registry.domain + (previous.domain && old.startsWith(previous.domain) ? old.slice(previous.domain.length) : '');
+        for (const image of Object.values(config.images || {})) if (image.image === old) image.image = repository;
+        for (const dev of Object.values(config.dev || {})) if (dev.imageSelector === old) dev.imageSelector = repository;
+        if (registry.user && registry.pass && app.clusters[0] !== 'local') config.pullSecrets = { pullsecret: {
+            registry: 'https://' + registryHost(registry.domain), username: registry.user, password: registry.pass
+        } };
+        else delete config.pullSecrets;
+        for (const deployment of Object.values(config.deployments || {})) {
+            for (const name of (deployment.kubectl || {}).manifests || []) {
+                const resourcePath = path.resolve(directory, name);
+                if (!resourcePath.startsWith(path.resolve(directory) + path.sep)) throw new Error('Invalid deployment manifest path.');
+                const documents = yaml.loadAll(fs.readFileSync(resourcePath, 'utf8')).filter(Boolean);
+                for (const document of documents) {
+                    const pod = document.kind === 'Pod' ? document.spec : document.spec && document.spec.template && document.spec.template.spec;
+                    if (!pod) continue;
+                    for (const container of [...(pod.containers || []), ...(pod.initContainers || [])]) if (container.image === old) container.image = repository;
+                    if (registry.user && registry.pass && app.clusters[0] !== 'local') pod.imagePullSecrets = [{ name: 'devspace-pull-secrets' }];
+                    else delete pod.imagePullSecrets;
+                }
+                fs.writeFileSync(resourcePath, documents.map(document => yaml.dump(document)).join('---\n'));
+            }
+        }
+        fs.writeFileSync(target, yaml.dump(config));
+        repositories[file] = repository;
+    }
+    app.registry = { ...registry }; app.imageRepositories = repositories;
+    cacheSettings({ id: app.id, registry: app.registry, imageRepositories: repositories });
+}
+
 export function updateDevspace(app, registry) {
+
+    if ((app.registry || {}).mode === 'repository' || registry.mode === 'repository') { updateRepositoryRegistry(app, registry); return; }
 
     let cache = getSetting(app.id);
 
@@ -137,6 +181,8 @@ export function updateDevspace(app, registry) {
 }
 
 export function updateApp(app, registry) {
+
+    if ((app.registry || {}).mode === 'repository' || registry.mode === 'repository') return;
 
     let cache = getSetting(app.id);
 

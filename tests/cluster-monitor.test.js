@@ -210,6 +210,53 @@ test('diagnostic logs are namespace scoped and have bounded output', async t => 
     assert.deepEqual(f.calls[0].args.slice(0, 7), ['logs', 'app-123-abc', '--tail=200', '--limit-bytes=262144', '--all-containers=true', '--namespace', 'app-namespace']);
 });
 
+test('container-specific recent/previous logs use SSH app identity and isolated caches', async t => {
+    const f = fixture(t, { ssh: true });
+    const request = { clusterId: 'remote', appId: 'app-id', operation: 'logs', pod: 'web-123', container: 'web', timestamps: true };
+    await f.monitor.read(request); await f.monitor.read({ ...request, previous: true }); await f.monitor.read({ ...request, container: 'worker' });
+    await f.monitor.read({ ...request, timestamps: false }); await f.monitor.read(request);
+    assert.equal(f.calls.length, 4);
+    for (const call of f.calls) {
+        assert.ok(!call.args.includes('--all-containers=true'));
+        assert.ok(call.args.includes('--tail=200')); assert.ok(call.args.includes('--limit-bytes=262144'));
+        assert.equal(call.config.users[0].user.token, 'app-reader');
+        assert.equal(call.config.clusters[0].cluster.server, 'https://127.0.0.1:45678');
+        assert.equal(call.args[call.args.indexOf('--namespace') + 1], 'app-namespace');
+        assert.equal(fs.existsSync(call.kubeconfigPath), false);
+    }
+    assert.ok(f.calls[0].args.includes('--timestamps=true')); assert.ok(f.calls[1].args.includes('--previous=true'));
+    assert.equal(f.calls[2].args[f.calls[2].args.indexOf('--container') + 1], 'worker');
+    assert.ok(!f.calls[3].args.includes('--timestamps=true'));
+    f.entry.state = 'disconnected';
+    await assert.rejects(f.monitor.read(request), error => error.code === 'SSH_UNAVAILABLE');
+    assert.equal(f.calls.length, 4, 'A cached log result must not bypass disconnected SSH');
+});
+
+test('pod warning queries are read-only, namespace and UID scoped, with separate incarnation caches', async t => {
+    const f = fixture(t, { ssh: true });
+    const request = { clusterId: 'remote', appId: 'app-id', operation: 'events', pod: 'web-123', podUid: 'pod-123' };
+    await f.monitor.read(request); await f.monitor.read({ ...request, podUid: 'pod-456' }); await f.monitor.read({ ...request, podUid: undefined });
+    assert.equal(f.calls.length, 3);
+    assert.equal(f.calls[0].args[f.calls[0].args.indexOf('--field-selector') + 1], 'involvedObject.uid=pod-123,involvedObject.kind=Pod,type=Warning');
+    assert.match(f.calls[2].args[f.calls[2].args.indexOf('--field-selector') + 1], /involvedObject.name=web-123/);
+    assert.ok(!f.calls[0].args.includes('--all-namespaces'));
+});
+
+test('same-name replacement pods cannot receive the previous pod incarnation cached logs', async t => {
+    const f = fixture(t, { ssh: true });
+    const request = { clusterId: 'remote', appId: 'app-id', operation: 'logs', pod: 'stateful-pod-0', container: 'web', timestamps: true, podUid: 'first-pod' };
+    await f.monitor.read(request); await f.monitor.read({ ...request, podUid: 'replacement-pod' });
+    assert.equal(f.calls.length, 2);
+});
+
+test('log/event options cannot inject flags, select other namespaces or request unbounded variants', async t => {
+    const f = fixture(t, { ssh: true });
+    const logs = { clusterId: 'remote', appId: 'app-id', operation: 'logs', pod: 'web-123' };
+    for (const options of [{ container: '--help' }, { container: 'other/name' }, { previous: true }, { previous: 'yes' }, { timestamps: 'true' }]) await assert.rejects(f.monitor.read({ ...logs, ...options }));
+    for (const options of [{ podUid: 'uid,type=Normal' }, { podUid: '--help' }, { pod: 'web; ls' }]) await assert.rejects(f.monitor.read({ ...logs, operation: 'events', ...options }));
+    assert.equal(f.calls.length, 0);
+});
+
 test('app configs are resolved correctly when workspace paths contain spaces', async t => {
     const f = fixture(t, { ssh: true });
     const workspace = path.join(f.baseDir, 'My workspace');

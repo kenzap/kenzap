@@ -7,6 +7,7 @@ import { getClusterKubeconfig } from './cluster-kubernetes-helpers.js'
 import { DevToolsSync } from './dev-tools-sync.js'
 import { DevToolsConsole } from './dev-tools-console.js'
 import { DevToolsPublish } from './dev-tools-publish.js'
+import { initLocalAccess } from './local-access-client.js'
 import { Client as ssh } from 'ssh2';
 import { timeStamp } from "console"
 import child_process from "child_process"
@@ -38,6 +39,8 @@ export class DevTools {
     }
 
     init() {
+
+        initLocalAccess();
 
         this.devToolsSync = new DevToolsSync();
         this.devToolsSync.init();

@@ -9,7 +9,7 @@ const iconRequests = new Map();
 const bundledIcons = require.context('../img/apps', false, /\.(svg|png|jpe?g|webp|gif)$/i);
 const bundledIconNames = new Set(bundledIcons.keys());
 
-function getBundledIcon(url) {
+export function getBundledIcon(url) {
     const match = url.match(/^https:\/\/kenzap\.cloud\/static\/apps\/([^/?#]+)(?:[?#].*)?$/);
     if (!match || !bundledIconNames.has('./' + match[1])) return '';
     const icon = bundledIcons('./' + match[1]);

@@ -17,7 +17,8 @@ export class AppClusterPicker {
 
     view() {
 
-        if (!this.app.clusters.length) this.app.clusters = [this.clusters[0].id];
+        if (!this.clusters.length) return `<p class="form-text">${__html('No clusters available. Add a cluster before creating an app.')}</p>`;
+        if (!this.app.clusters.length || !this.clusters.some(cluster => this.app.clusters.includes(cluster.id))) this.app.clusters = [this.clusters[0].id];
 
         return `
             <div class="${this.app.ui == "dialog" ? '' : 'col-sm-7'} pt-3">
